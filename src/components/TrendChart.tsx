@@ -1,82 +1,109 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Loader2, Database } from "lucide-react";
+import { Loader2, Database, History } from "lucide-react";
 
 export default function TrendChart() {
-  const [data, setData] = useState<{ date: string; total: number; critical: number }[]>([]);
+  const [data, setData] = useState<{ date: string; fullDate: string; total: number; critical: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    async function fetchTrendData() {
-      // 1. DYNAMIC DATES: Always calculate relative to "Right Now"
-      const today = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(today.getDate() - 29); // Look back 30 days
+    async function fetchUniversalHistory() {
+      try {
+        // 1. FETCH ALL DATA (Oldest to Newest)
+        const { data: records, error } = await supabase
+          .from("debunks")
+          .select("*")
+          .order("created_at", { ascending: true });
 
-      // 2. FETCH: Query Supabase using UTC (Standard for databases)
-      // We use .toISOString() to ensure Supabase understands the timestamp accurately
-      const { data: records, error } = await supabase
-        .from("debunks")
-        .select("created_at, severity")
-        .gte("created_at", thirtyDaysAgo.toISOString());
+        if (error) throw error;
+        const rawData = records || [];
 
-      if (error) {
-        console.error("Error fetching chart data:", error);
-      }
+        if (rawData.length === 0) {
+            setLoading(false);
+            return;
+        }
 
-      const rawData = records || [];
-
-      // 3. PROCESS: Match records using Local Time (Best for UI)
-      const processedData = [];
-      const iterDate = new Date(thirtyDaysAgo);
-
-      // Loop from Start Date until Today
-      while (iterDate <= today) {
-        // Create a human-readable label (e.g., "Jan 18")
-        const label = iterDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        // 2. DETERMINE START & END DATE
+        // Start = The very first upload date found in DB
+        const firstRecordDate = new Date(rawData[0].created_at || rawData[0].inserted_at);
+        const today = new Date();
         
-        // Filter records that match this SPECIFIC day in the user's local timezone
-        const dayRecords = rawData.filter(r => {
-          const recordDate = new Date(r.created_at);
-          return (
-            recordDate.getDate() === iterDate.getDate() &&
-            recordDate.getMonth() === iterDate.getMonth() &&
-            recordDate.getFullYear() === iterDate.getFullYear()
-          );
-        });
+        // Ensure End Date covers "Today" (even if no uploads today)
+        let endDate = today;
         
-        processedData.push({
-          date: label,
-          total: dayRecords.length,
-          critical: dayRecords.filter(r => r.severity === 'critical').length
-        });
+        // Ensure Start Date is at least 30 days ago (for a nice default view)
+        // If data is older than 30 days, we use the real data start date.
+        let startDate = firstRecordDate;
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 29);
 
-        // Move loop to the next day
-        iterDate.setDate(iterDate.getDate() + 1);
+        if (startDate > thirtyDaysAgo) {
+            startDate = thirtyDaysAgo;
+        }
+
+        // 3. GENERATE UNIVERSAL TIMELINE
+        const processedData = [];
+        const iterDate = new Date(startDate);
+        
+        // Safety: Limit to 5 years (approx 1800 days) to prevent browser crash
+        let safetyLoop = 0;
+        
+        while (iterDate <= endDate && safetyLoop < 1825) {
+            // Match Key: YYYY-MM-DD (Global Standard)
+            const matchKey = iterDate.toISOString().split('T')[0];
+            
+            // Label: "Jan 18" or "Jan 18, 2024" if simpler
+            const label = iterDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            // Count DB matches
+            const dayRecords = rawData.filter(r => {
+                const rDate = new Date(r.created_at || r.inserted_at);
+                return rDate.toISOString().split('T')[0] === matchKey;
+            });
+
+            processedData.push({
+                date: label,
+                fullDate: matchKey,
+                total: dayRecords.length,
+                critical: dayRecords.filter(r => r.severity === 'critical').length
+            });
+
+            // Next Day
+            iterDate.setDate(iterDate.getDate() + 1);
+            safetyLoop++;
+        }
+
+        setData(processedData);
+
+      } catch (err) {
+        console.error("Chart Error:", err);
+      } finally {
+        setLoading(false);
       }
-
-      setData(processedData);
-      setLoading(false);
     }
 
-    fetchTrendData();
+    fetchUniversalHistory();
   }, []);
 
-  // Determine scale (Minimum 1 to prevent division by zero errors)
-  const maxValue = Math.max(...data.map(d => d.total), 1);
+  // 4. AUTO-SCROLL TO END (Latest Data)
+  useEffect(() => {
+    if (!loading && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, [loading, data]);
 
-  if (loading) {
-    return (
-      <section className="py-12 border-b border-slate-200 bg-white min-h-[300px] flex items-center justify-center">
-         <div className="flex flex-col items-center gap-2 text-slate-400">
-            <Loader2 className="animate-spin w-8 h-8" />
-            <span className="text-xs">Loading live analytics...</span>
-         </div>
-      </section>
-    );
-  }
+  // Max value for bar height scaling
+  const maxValue = Math.max(...data.map(d => d.total), 1);
+  const totalCases = data.reduce((acc, cur) => acc + cur.total, 0);
+
+  if (loading) return (
+    <div className="py-12 border-b border-slate-200 bg-white flex justify-center">
+        <Loader2 className="animate-spin text-slate-300 w-6 h-6" />
+    </div>
+  );
 
   return (
     <section className="py-12 border-b border-slate-200 bg-white">
@@ -84,64 +111,79 @@ export default function TrendChart() {
         <div className="mb-6 flex items-end justify-between">
           <div>
             <h2 className="font-serif text-2xl font-bold mb-2 text-[#1e3a5f]">Detection Activity</h2>
-            <p className="text-sm text-slate-500">
-               Real-time verified cases (Last 30 Days)
+            <p className="text-sm text-slate-500 flex items-center gap-2">
+                <History className="w-3 h-3" />
+                Timeline: {data[0]?.date} — Today
             </p>
           </div>
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
              <Database className="w-3 h-3" />
-             <span>Live Database</span>
+             <span>{totalCases} Total Records</span>
           </div>
         </div>
         
+        {/* CHART CONTAINER */}
         <div className="p-6 rounded-2xl border border-slate-200 bg-slate-50">
-          <div className="flex items-end justify-between gap-1 h-64">
-            {data.map((day, i) => {
-              const heightPercent = (day.total / maxValue) * 100;
-              const criticalPercent = day.total > 0 ? (day.critical / day.total) * 100 : 0;
-              const hasData = day.total > 0;
+            
+            {/* SCROLLABLE AREA */}
+            <div 
+                ref={scrollContainerRef}
+                className="overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
+            >
+                {/* DYNAMIC WIDTH:
+                   - If strict 30 days: Width is 100% (Fits screen).
+                   - If 2 years data: Width is massive (Scrollable).
+                */}
+                <div 
+                    className="flex items-end gap-1 h-64"
+                    style={{ 
+                        // Ensure at least 100% width, but grow if many data points
+                        minWidth: data.length > 35 ? `${data.length * 24}px` : '100%' 
+                    }}
+                >
+                    {data.map((day, i) => {
+                        // Calculate Height in Pixels (Max 200px)
+                        // Using Pixels is safer than % for complex flex layouts
+                        const heightPx = day.total === 0 ? 4 : (day.total / maxValue) * 200; 
+                        const isCritical = day.critical > 0;
 
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center group relative min-w-[8px]">
-                  {/* The Bar */}
-                  <div 
-                    className={`w-full rounded-t relative transition-all duration-500 ${hasData ? 'bg-[#1e3a5f] hover:opacity-90' : 'bg-[#1e3a5f]/5'}`}
-                    style={{ height: `${hasData ? heightPercent : 2}%` }} 
-                  >
-                    {day.critical > 0 && (
-                      <div 
-                        className="absolute bottom-0 left-0 right-0 rounded-t bg-red-500"
-                        style={{ height: `${criticalPercent}%` }} 
-                      />
-                    )}
-                  </div>
-                  
-                  {/* Tooltip */}
-                  {hasData && (
-                    <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1e3a5f] text-white text-xs p-3 rounded-lg shadow-xl pointer-events-none z-10 w-28 text-center transition-opacity">
-                      <p className="font-bold border-b border-white/20 pb-1 mb-1">{day.date}</p>
-                      <div className="flex justify-between px-1">
-                         <span>Total:</span>
-                         <span className="font-bold">{day.total}</span>
-                      </div>
-                      {day.critical > 0 && (
-                        <div className="flex justify-between px-1 text-red-300">
-                           <span>Critical:</span>
-                           <span className="font-bold">{day.critical}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        return (
+                            <div key={i} className="flex-1 flex flex-col items-center group relative min-w-[12px]">
+                                {/* THE BAR */}
+                                <div 
+                                    className="w-full transition-all duration-300 hover:opacity-80 rounded-t"
+                                    style={{
+                                        height: `${heightPx}px`,
+                                        backgroundColor: day.total > 0 ? '#1e3a5f' : '#e2e8f0', // Blue vs Light Gray
+                                        position: 'relative'
+                                    }}
+                                >
+                                    {/* Red Critical Tip */}
+                                    {isCritical && (
+                                        <div className="absolute bottom-0 left-0 right-0 rounded-t bg-red-500" 
+                                             style={{ height: '50%' }} 
+                                        />
+                                    )}
+                                </div>
+
+                                {/* HOVER TOOLTIP */}
+                                {day.total > 0 && (
+                                    <div className="hidden group-hover:block absolute bottom-full mb-2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-20 shadow-xl">
+                                        <div className="font-bold">{day.fullDate}</div>
+                                        <div>{day.total} Cases</div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
-              );
-            })}
-          </div>
-          
-          {/* Dynamic Labels */}
-          <div className="flex justify-between mt-4 text-xs text-slate-400 font-medium uppercase tracking-wider">
-            <span>{data[0]?.date || '30 days ago'}</span>
-            <span>Today</span>
-          </div>
+            </div>
+
+            {/* Labels (Start & End) */}
+            <div className="flex justify-between mt-2 text-xs text-slate-400 font-medium uppercase border-t border-slate-200 pt-3">
+                <span>{data[0]?.date}</span>
+                <span>Today</span>
+            </div>
         </div>
       </div>
     </section>

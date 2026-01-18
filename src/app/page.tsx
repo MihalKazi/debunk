@@ -18,7 +18,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
              <span className="font-serif font-bold">AIFNR</span>
-             <p className="text-sm opacity-70">© 2024 Fake News Repository</p>
+             <p className="text-sm opacity-70">© 2024-26 Fake News Repository</p>
           </div>
           <div className="flex gap-6 text-sm opacity-70">
             <a href="#" className="hover:opacity-100">Privacy</a>
