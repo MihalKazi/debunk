@@ -28,14 +28,7 @@ export default function Navbar() {
             <Link href="/#methodology" className="text-sm font-medium text-slate-700 hover:text-[#1e3a5f] transition-colors">
               Methodology
             </Link>
-            
-            {/* The Admin Button */}
-            <Link 
-              href="/submit" 
-              className="px-5 py-2.5 rounded-lg bg-[#1e3a5f] text-white text-sm font-medium hover:bg-slate-700 transition-all shadow-sm hover:shadow-md"
-            >
-              Submit Case
-            </Link>
+          
           </nav>
 
           {/* Mobile Menu Button */}
