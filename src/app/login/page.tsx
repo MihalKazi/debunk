@@ -1,72 +1,40 @@
 "use client";
+
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [error, setError] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const UNIVERSAL_PASSWORD = "debunker@2025"; 
+
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-    } else {
-      // Use refresh to ensure middleware picks up the new cookie
-      router.refresh(); 
+    if (password === UNIVERSAL_PASSWORD) {
+      // Set a cookie that lasts 24 hours
+      document.cookie = "admin_access=true; path=/; max-age=86400; SameSite=Strict";
       router.push("/admin");
+    } else {
+      setError(true);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex justify-center mb-6 text-[#1e3a5f]">
-          <ShieldCheck size={48} className="animate-pulse" />
-        </div>
-        
-        <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">Staff Access</h1>
-        <p className="text-center text-slate-500 text-sm mb-8">Secure Archive Management</p>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input 
-            type="email" placeholder="Admin Email" required 
-            className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            value={email} onChange={e => setEmail(e.target.value)}
-          />
-          <input 
-            type="password" placeholder="Password" required 
-            className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            value={password} onChange={e => setPassword(e.target.value)}
-          />
-          
-          {errorMsg && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs font-medium">
-              {errorMsg}
-            </div>
-          )}
-
-          <button 
-            disabled={loading} 
-            className="w-full bg-[#1e3a5f] text-white py-3 rounded-lg font-bold hover:bg-black transition-all flex justify-center items-center gap-2"
-          >
-            {loading ? <Loader2 className="animate-spin w-5 h-5" /> : "Verify Identity"}
-          </button>
-        </form>
-      </div>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <form onSubmit={handleLogin} className="p-8 bg-white rounded-xl shadow-lg border border-slate-200 w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-6 text-[#1e3a5f]">Staff Login</h1>
+        <input
+          type="password"
+          className="w-full p-3 border rounded-lg mb-4 outline-none focus:ring-2 focus:ring-blue-400"
+          placeholder="Enter Admin Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <p className="text-red-500 text-sm mb-4">Incorrect Password</p>}
+        <button className="w-full bg-[#1e3a5f] text-white py-3 rounded-lg font-bold">Access Dashboard</button>
+      </form>
     </div>
   );
-}
+}  

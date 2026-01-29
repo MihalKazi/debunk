@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { AlertTriangle, Calendar, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Calendar, ArrowLeft, Globe, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
@@ -7,14 +7,13 @@ import { Metadata } from "next";
 // 1. Force dynamic rendering so new debunks appear instantly
 export const revalidate = 0; 
 
-// 2. UPDATE: params is now a Promise in Next.js 15+
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
-// 3. SEO Title Generation
+// 2. SEO Title Generation
 export async function generateMetadata(props: Props): Promise<Metadata> {
-  const params = await props.params; // <--- AWAITING PARAMS HERE
+  const params = await props.params; 
   
   const { data: post } = await supabase
     .from("debunks")
@@ -25,16 +24,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   if (!post) return { title: "Not Found" };
   
   return {
-    title: `Fact Check: ${post.title} | Debunk.`,
+    title: `Fact Check: ${post.title} | Debunk Repository`,
     description: `Analysis and verification of the claim: ${post.title}`,
   };
 }
 
 export default async function DebunkDetail(props: Props) {
-  const params = await props.params; // <--- AWAITING PARAMS HERE
+  const params = await props.params; 
   const { slug } = params;
 
-  // 4. Fetch Data using the awaited slug
+  // 3. Fetch Data
   const { data: post } = await supabase
     .from("debunks")
     .select("*")
@@ -43,11 +42,11 @@ export default async function DebunkDetail(props: Props) {
 
   if (!post) notFound();
 
-  // 5. Construct JSON-LD (The "ClaimReview" Schema)
+  // 4. Construct JSON-LD (Schema.org)
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ClaimReview",
-    "datePublished": post.created_at,
+    "datePublished": post.occurrence_date || post.created_at,
     "url": `https://your-site.com/debunk/${post.slug}`,
     "claimReviewed": post.title,
     "reviewRating": {
@@ -59,14 +58,14 @@ export default async function DebunkDetail(props: Props) {
     },
     "author": {
       "@type": "Organization",
-      "name": "Debunk. AI Repository"
+      "name": "Debunk AI Repository"
     },
     "itemReviewed": {
       "@type": "Claim",
       "appearance": [
         {
           "@type": "CreativeWork",
-          "url": post.media_url || ""
+          "url": post.source_link || ""
         }
       ]
     }
@@ -74,7 +73,6 @@ export default async function DebunkDetail(props: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Inject Schema for Google */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -83,9 +81,9 @@ export default async function DebunkDetail(props: Props) {
       {/* Navigation */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center">
-          <Link href="/" className="flex items-center text-slate-500 hover:text-primary transition-colors">
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Repository
+          <Link href="/" className="flex items-center text-slate-500 hover:text-blue-600 font-bold text-sm transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            BACK TO REPOSITORY
           </Link>
         </div>
       </nav>
@@ -94,15 +92,18 @@ export default async function DebunkDetail(props: Props) {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider ${
-              post.verdict === 'Fake' ? 'bg-red-100 text-red-700' : 
-              post.verdict === 'Satire' ? 'bg-yellow-100 text-yellow-700' : 'bg-orange-100 text-orange-700'
+            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+              post.verdict === 'Fake' ? 'bg-red-100 text-red-700 border border-red-200' : 
+              post.verdict === 'Satire' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-orange-100 text-orange-700 border border-orange-200'
             }`}>
               {post.verdict}
             </span>
-            <span className="text-slate-500 text-sm flex items-center">
-              <Calendar className="h-4 w-4 mr-1" />
-              {new Date(post.created_at).toLocaleDateString()}
+            <span className="text-slate-400 text-xs font-bold flex items-center uppercase tracking-tighter">
+              <Calendar className="h-3.5 w-3.5 mr-1" />
+              {/* USE SHEET DATE IF AVAILABLE */}
+              {new Date(post.occurrence_date || post.created_at).toLocaleDateString('en-US', { 
+                month: 'long', day: 'numeric', year: 'numeric' 
+              })}
             </span>
           </div>
           
@@ -112,16 +113,17 @@ export default async function DebunkDetail(props: Props) {
         </div>
 
         {/* Evidence Image */}
-        <div className="bg-black rounded-xl overflow-hidden shadow-2xl mb-10 border border-slate-800 relative group">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-10 border border-slate-200 relative group">
           {post.media_url ? (
             <img 
               src={post.media_url} 
               alt="Evidence" 
-              className="w-full max-h-[600px] object-contain mx-auto"
+              className="w-full max-h-[500px] object-contain mx-auto bg-slate-50"
             />
           ) : (
-            <div className="h-64 flex items-center justify-center text-slate-500">
-              No media evidence attached.
+            <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Globe size={40} className="opacity-20" />
+              <span className="text-sm font-medium">Digital trace verified. Image evidence not archived.</span>
             </div>
           )}
         </div>
@@ -129,41 +131,67 @@ export default async function DebunkDetail(props: Props) {
         {/* Analysis Body */}
         <div className="grid md:grid-cols-3 gap-10">
           <div className="md:col-span-2 space-y-6">
-            <section className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-              <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2 text-primary" />
-                Fact-Check Analysis
+            <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+              <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                Verification Analysis
               </h2>
-              <p className="text-lg text-slate-700 leading-relaxed whitespace-pre-wrap font-serif">
+              <p className="text-xl text-slate-800 leading-relaxed whitespace-pre-wrap font-serif">
                 {post.summary}
               </p>
+
+              {/* NEW: SOURCE LINK SECTION */}
+              {post.source_link && (
+                <div className="mt-12 pt-8 border-t border-slate-100">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-white rounded-xl shadow-sm border border-slate-200 text-blue-600">
+                        <Globe size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">Original News Source</h4>
+                        <p className="text-[11px] text-slate-500 font-medium">Verified external reference</p>
+                      </div>
+                    </div>
+                    <a 
+                      href={post.source_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto text-center bg-[#1e3a5f] text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-black transition-all"
+                    >
+                      Visit News Site
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              )}
             </section>
           </div>
 
           {/* Sidebar Metadata */}
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
-                Case Details
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">
+                Case Metadata
               </h3>
               
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <span className="block text-xs text-slate-500 mb-1">Severity Level</span>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Impact Level</span>
                   <div className="flex items-center gap-2">
-                    <div className={`h-3 w-3 rounded-full ${
+                    <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${
                       post.severity === 'critical' ? 'bg-red-600' : 
                       post.severity === 'high' ? 'bg-orange-500' : 'bg-yellow-400'
                     }`} />
-                    <span className="font-medium text-slate-900 capitalize">{post.severity || "Medium"}</span>
+                    <span className="font-bold text-sm text-slate-900 capitalize">{post.severity || "Standard"}</span>
                   </div>
                 </div>
 
                 <div>
-                  <span className="block text-xs text-slate-500 mb-1">Categories</span>
-                  <div className="flex flex-wrap gap-2">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Classification</span>
+                  <div className="flex flex-wrap gap-1.5">
                     {post.tags && post.tags.map((tag: string) => (
-                      <span key={tag} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">
+                      <span key={tag} className="px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-bold rounded-lg uppercase">
                         {tag}
                       </span>
                     ))}
