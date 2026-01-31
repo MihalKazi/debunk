@@ -36,11 +36,15 @@ export default function Footer() {
             </div>
 
             <div className="text-center md:text-left mt-2">
-              <p className="text-xs text-slate-400 font-medium tracking-[0.1em]">
-                © 2024-2026 GNG REPOSITORY. 
+              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
+                © 2024-2026 GNG REPOSITORY
               </p>
-              <p className="mt-1 opacity-50 font-light italic text-[10px] text-slate-400">
-                Tracking synthetic media misinformation globally.
+              {/* --- UPDATED COPYRIGHT --- */}
+              <p className="text-[9px] text-slate-400 font-medium tracking-widest uppercase mt-1">
+                A project by <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-white transition-colors underline decoration-blue-400/30 underline-offset-4">Activate Rights</a>. All rights reserved.
+              </p>
+              <p className="mt-2 opacity-50 font-light italic text-[10px] text-slate-400 max-w-[280px]">
+                Tracking synthetic media misinformation and safeguarding digital integrity globally.
               </p>
             </div>
           </div>
@@ -58,7 +62,7 @@ export default function Footer() {
             <div className="h-px w-32 bg-slate-700/50" />
             
             <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">
-              SYSTEM-STATUS: <span className="text-emerald-500">ACTIVE</span> | REF-8.4.2
+              SYSTEM-STATUS: <span className="text-emerald-500">ACTIVE</span>
             </p>
           </div>
 
