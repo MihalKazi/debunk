@@ -42,7 +42,7 @@ export default function HeroSection() {
           <div className="max-w-3xl">
             <div className="flex items-center gap-2 mb-4">
               <span className="px-3 py-1 text-xs font-medium rounded-full bg-white/15 text-white backdrop-blur-sm">
-                GNG Archive v8.4
+                GNG Archive
               </span>
               <span className="px-3 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-sm">
                 Human Verified
@@ -62,9 +62,6 @@ export default function HeroSection() {
             <div className="flex flex-wrap gap-4">
               <Link href="/#cases" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest bg-white text-[#1e3a5f] hover:bg-slate-100 transition-colors shadow-lg">
                 Explore Archive
-              </Link>
-              <Link href="/admin" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest text-white border border-white/30 hover:bg-white/10 transition-colors">
-                Staff Portal
               </Link>
             </div>
           </div>
