@@ -7,6 +7,9 @@ const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif
 
 // --- SEO MASTER CONFIGURATION ---
 export const metadata: Metadata = {
+  verification: {
+    google: "syAxFMkHHfRic0escmy-2X1IoiMpHdtD52L71JDTbCY", // Paste just the content string here
+  },
   metadataBase: new URL('https://aigng.activaterights.org'),
   title: {
     default: "GNG | Generated, not Genuine | AI Verification Repository",
