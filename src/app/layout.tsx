@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import { Inter, Source_Serif_4 } from "next/font/google"; // Import Source Serif
+import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif" });
 
 export const metadata: Metadata = {
-  title: "AIFNR | AI Fake News Repository",
-  description: "Tracking AI images and videos used for misinformation.",
+  // Updated Title and Description for GNG Branding
+  title: "GNG | Generated, not Genuine",
+  description: "Global repository documenting the boundary between synthetic media and digital truth.",
+  icons: {
+    icon: "/logo.svg", // This points to your SVG logo in the public folder
+  },
 };
 
 export default function RootLayout({
