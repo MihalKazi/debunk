@@ -7,9 +7,6 @@ const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif
 
 // --- SEO MASTER CONFIGURATION ---
 export const metadata: Metadata = {
-  verification: {
-    google: "syAxFMkHHfRic0escmy-2X1IoiMpHdtD52L71JDTbCY", // Paste just the content string here
-  },
   metadataBase: new URL('https://aigng.activaterights.org'),
   title: {
     default: "GNG | Generated, not Genuine | AI Verification Repository",
@@ -24,6 +21,10 @@ export const metadata: Metadata = {
     icon: "/logo.svg",
     apple: "/logo.svg",
   },
+  // --- VERIFICATION (Consolidated - No Duplicates) ---
+  verification: {
+    google: "syAxFMkHHfRic0escmy-2X1IoiMpHdtD52L71JDTbCY",
+  },
   // OpenGraph (Facebook/LinkedIn/Discord previews)
   openGraph: {
     type: "website",
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     description: "Documenting the boundary between synthetic media and digital truth through forensic verification.",
     images: [
       {
-        url: "/og-image.jpg", // Create a 1200x630px image and put it in /public
+        url: "/og-image.jpg", 
         width: 1200,
         height: 630,
         alt: "GNG Repository Dashboard",
@@ -47,10 +48,6 @@ export const metadata: Metadata = {
     title: "GNG | Generated, not Genuine",
     description: "Global repository for verifying AI-generated misinformation.",
     images: ["/og-image.jpg"],
-  },
-  // Google Search Console Verification
-  verification: {
-    google: "YOUR_GOOGLE_VERIFICATION_CODE", // Add your code once you verify in Search Console
   },
   robots: {
     index: true,
