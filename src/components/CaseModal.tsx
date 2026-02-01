@@ -1,6 +1,19 @@
 "use client";
 
-import { X, ExternalLink, Share2, AlertTriangle, MapPin, Globe, ShieldCheck, ScanFace, ImageIcon, Calendar, Link as LinkIcon, Info } from "lucide-react";
+import { 
+  X, 
+  ExternalLink, 
+  Share2, 
+  ImageIcon, 
+  Archive, 
+  CheckCircle2, 
+  ShieldCheck, 
+  MapPin, 
+  Globe, 
+  Clock, 
+  History,
+  Tag // Added for Category icon
+} from "lucide-react";
 import Link from "next/link";
 
 interface CaseModalProps {
@@ -12,109 +25,146 @@ interface CaseModalProps {
 export default function CaseModal({ isOpen, onClose, data }: CaseModalProps) {
   if (!isOpen || !data) return null;
 
-  const isValidUrl = (url: string) => {
-    return url && typeof url === 'string' && url.startsWith("http");
+  const getBrandStyle = (name: string) => {
+    const brand = name?.toLowerCase() || "";
+    if (brand.includes("rumour scanner") || brand.includes("rumor scanner")) 
+        return { color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", icon: "text-blue-600" };
+    if (brand.includes("dismislab")) 
+        return { color: "text-purple-700", bg: "bg-purple-50", border: "border-purple-200", icon: "text-purple-600" };
+    if (brand.includes("factwatch") || brand.includes("fact-watch")) 
+        return { color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200", icon: "text-emerald-600" };
+    
+    return { color: "text-slate-900", bg: "bg-slate-50", border: "border-slate-200", icon: "text-slate-500" };
   };
 
-  const getVerdictColor = (v: string) => {
-    const verdict = v?.toLowerCase();
-    if (verdict === 'fake') return 'bg-red-500 text-white';
-    if (verdict === 'satire') return 'bg-amber-500 text-white';
-    return 'bg-blue-500 text-white';
-  };
+  const brandStyle = getBrandStyle(data.source);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-0 md:p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 transition-all duration-300">
       <div className="absolute inset-0" onClick={onClose}></div>
 
-      <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl bg-white md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-4xl bg-white rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 max-h-[92vh]">
         
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 z-50 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-xl border border-white/20 transition-all"
+          className="absolute top-6 right-6 z-[110] w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full flex items-center justify-center transition-all hover:rotate-90 active:scale-90 border border-white/20"
         >
-          <X size={20} />
+          <X size={24} strokeWidth={2.5} />
         </button>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex flex-col md:flex-row min-h-full">
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="w-full h-[350px] md:h-[450px] bg-[#0f172a] flex items-center justify-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 30L0 0h60L30 30z' fill='%23ffffff' fill-rule='evenodd'/%3E%3C/svg%3E")` }} />
             
-            {/* 1. Media Section - Transparent Glass Background */}
-            <div className="w-full md:w-1/2 bg-slate-50 relative flex items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 min-h-[300px] md:min-h-[600px]">
-              {/* Subtle radial gradient for depth instead of flat dark color */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-200/50 via-transparent to-transparent"></div>
-              
-              {isValidUrl(data.media_url) ? (
-                <img 
-                  src={data.media_url} 
-                  alt="Evidence" 
-                  className="relative z-10 w-full h-full object-contain p-4 md:p-8 drop-shadow-2xl"
-                />
-              ) : (
-                <div className="flex flex-col items-center text-slate-300">
-                  <ImageIcon size={60} strokeWidth={1} className="mb-2" />
-                  <p className="text-[10px] uppercase font-bold tracking-widest">Visual Evidence Missing</p>
-                </div> 
-              )}
+            {data.media_url ? (
+              <img 
+                src={data.media_url} 
+                alt="Evidence" 
+                className="w-full h-full object-contain relative z-10 p-4 md:p-8 drop-shadow-2xl" 
+              />
+            ) : (
+              <div className="flex flex-col items-center text-white/20">
+                <ImageIcon size={80} strokeWidth={1} />
+                <p className="text-xs font-black uppercase tracking-[0.4em] mt-4">Visual Evidence Missing</p>
+              </div> 
+            )}
+          </div>
+
+          <div className="p-8 md:p-14">
+            
+            <div className="flex flex-wrap items-center gap-3 mb-8">
+              <span className="px-5 py-2 text-[12px] font-black rounded-full bg-red-600 text-white uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-600/20">
+                <CheckCircle2 size={16} strokeWidth={3} /> {data.verdict || "Fake"}
+              </span>
+              {/* NEW CATEGORY BADGE */}
+              <span className="px-5 py-2 text-[12px] font-black rounded-full bg-blue-100 text-blue-700 uppercase tracking-widest flex items-center gap-2">
+                <Tag size={16} /> {data.category || "General"}
+              </span>
+              <span className="px-5 py-2 text-[12px] font-black rounded-full bg-slate-900 text-white uppercase tracking-widest flex items-center gap-2">
+                <Archive size={16} /> GNG Archive
+              </span>
             </div>
 
-            {/* 2. Info Section */}
-            <div className="w-full md:w-1/2 p-6 md:p-12 flex flex-col bg-white">
-              <div className="flex items-center justify-between mb-8">
-                <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest shadow-sm ${getVerdictColor(data.verdict)}`}>
-                  {data.verdict || "Reviewing"}
-                </span>
-                <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold uppercase tracking-tight">
-                  <Calendar size={14} className="text-slate-300" />
-                  {new Date(data.occurrence_date || data.created_at).toLocaleDateString('en-GB', {
-                     day: 'numeric', month: 'short', year: 'numeric'
-                  })}
-                </div>
+            <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 leading-tight tracking-tighter">
+              {data.title}
+            </h2>
+            
+            <p className="text-slate-600 text-lg md:text-xl leading-relaxed mb-12 font-medium max-w-3xl">
+              {data.summary}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-slate-300 transition-colors">
+                <p className="text-[11px] font-black text-slate-400 mb-2 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Globe size={14} className="text-slate-400"/> Platform
+                </p>
+                <p className="font-bold text-slate-900 text-lg">{data.platform || "Web"}</p>
               </div>
 
-              <h2 className="font-serif text-2xl md:text-4xl font-bold text-slate-900 mb-6 leading-[1.1]">
-                {data.title}
-              </h2>
-              
-              <div className="prose prose-slate mb-8">
-                 <p className="text-slate-600 text-base md:text-lg leading-relaxed">
-                  {data.summary}
+              <div className={`p-6 rounded-2xl border ${brandStyle.bg} ${brandStyle.border} transition-all`}>
+                <p className="text-[11px] font-black text-slate-400 mb-2 uppercase tracking-[0.2em]">Verified By</p>
+                <p className={`font-black text-lg flex items-center gap-2 ${brandStyle.color}`}>
+                  <ShieldCheck size={20} className={brandStyle.icon} /> 
+                  {data.source || "Certified Fact-Checker"}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-10">
-                <DetailItem icon={<Globe size={14}/>} label="Platform" value={data.platform} />
-                <DetailItem icon={<MapPin size={14}/>} label="Region" value={data.country} />
+              {/* UPDATED REGION TILE TO CATEGORY TYPE TILE */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-slate-300 transition-colors">
+                <p className="text-[11px] font-black text-slate-400 mb-2 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Tag size={14} className="text-slate-400"/> Classification
+                </p>
+                <p className="font-bold text-slate-900 text-lg">{data.category || "General Content"}</p>
               </div>
 
-              {/* Source Information - Positioned before the buttons */}
-              {isValidUrl(data.source_link) && (
-                <div className="mt-auto p-5 rounded-2xl bg-blue-50/50 border border-blue-100/50 mb-8 group hover:bg-blue-50 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-500 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-bold text-blue-900 mb-1">Primary Source Available</h4>
-                      <p className="text-xs text-blue-700 leading-relaxed mb-3">
-                        The full report and original source for this case are hosted on the analysis page. Verify the details below.
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 mb-2 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Clock size={14} className="text-slate-400"/> Recorded Date
+                </p>
+                <p className="font-bold text-slate-900 text-lg">
+                  {data.occurrence_date ? new Date(data.occurrence_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : "Recently"}
+                </p>
+              </div>
+            </div>
+
+            {/* ACTION SECTION */}
+            <div className="space-y-4">
+              {data.wayback_url && (
+                <Link 
+                  href={data.wayback_url} 
+                  target="_blank"
+                  className="flex items-center justify-between w-full p-6 transition-all border bg-emerald-50 border-emerald-100 rounded-3xl group hover:bg-emerald-600 hover:border-emerald-600 shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
+                      <History size={24} className="text-emerald-600" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 group-hover:text-emerald-100 transition-colors">
+                        Independent Forensic Mirror
                       </p>
-                     
+                      <p className="text-lg font-bold text-slate-900 group-hover:text-white transition-colors">
+                        View Historical Snapshot
+                      </p>
                     </div>
                   </div>
-                </div>
+                  <ExternalLink size={20} className="text-emerald-300 group-hover:text-white" />
+                </Link>
               )}
 
-              {/* Primary Actions */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col md:flex-row gap-4">
                 <Link 
-                  href={`/debunk/${data.slug}`} 
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#1e3a5f] text-white px-8 py-5 rounded-2xl font-bold hover:bg-black transition-all shadow-lg shadow-blue-900/10"
+                  href={data.source_link || "#"} 
+                  target="_blank"
+                  className="flex-[2] inline-flex items-center justify-center gap-3 bg-slate-900 text-white px-10 py-6 rounded-2xl font-black uppercase text-[12px] tracking-[0.25em] hover:bg-blue-600 transition-all shadow-xl active:scale-[0.98]"
                 >
-                  View Full Analysis & Source Details
-                  <ExternalLink size={18} />
+                  <ExternalLink size={20} />
+                  Explore Source Report
                 </Link>
 
-                <button className="flex sm:w-16 items-center justify-center border border-slate-200 text-slate-400 p-5 rounded-2xl hover:text-slate-900 hover:bg-slate-50 transition-all">
+                <button className="flex-1 inline-flex items-center justify-center gap-3 border-2 border-slate-200 text-slate-900 px-8 py-6 rounded-2xl font-black uppercase text-[12px] tracking-[0.25em] hover:bg-slate-50 transition-all">
                   <Share2 size={20} />
+                  Share Case
                 </button>
               </div>
             </div>
@@ -122,17 +172,6 @@ export default function CaseModal({ isOpen, onClose, data }: CaseModalProps) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function DetailItem({ icon, label, value }: { icon: any, label: string, value: string }) {
-  return (
-    <div className="p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
-      <p className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
-        {icon} {label}
-      </p>
-      <p className="font-bold text-slate-900 text-sm truncate">{value || "Universal"}</p>
     </div>
   );
 }
