@@ -8,8 +8,35 @@ import { supabase } from '@/lib/supabaseClient';
 import { Download, Shield, CheckCircle2, X, AlertTriangle, ArrowLeft, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 
+// --- TypeScript Interfaces for Stability ---
+interface Template {
+  id: string;
+  name: string;
+  gradient: string;
+  text: string;
+}
+
+interface FormDataState {
+  claim: string;
+  status: string;
+  verdict: string;
+  source: string;
+}
+
+interface GraphicCardProps {
+  formData: FormDataState;
+  selectedTemplate: string;
+  templates: Template[];
+  isFixedSize?: boolean;
+}
+
 // --- Sub-Component: The Graphic Card ---
-const GraphicCard = ({ formData, selectedTemplate, templates, isFixedSize = false }) => {
+const GraphicCard = ({ 
+  formData, 
+  selectedTemplate, 
+  templates, 
+  isFixedSize = false 
+}: GraphicCardProps) => {
   const currentTemplate = templates.find(t => t.id === selectedTemplate) || templates[0];
   const isFalse = formData.status?.toLowerCase() === 'false' || formData.status?.toLowerCase() === 'fake';
 
@@ -29,7 +56,7 @@ const GraphicCard = ({ formData, selectedTemplate, templates, isFixedSize = fals
               <span className={`font-black tracking-tighter ${isFixedSize ? 'text-5xl' : 'text-2xl'} ${currentTemplate.text}`}>GNG NEWS</span>
             </div>
             <div className={`${isFalse ? 'bg-red-500' : 'bg-emerald-500'} px-6 py-2 rounded-full border border-white/20 shadow-xl`}>
-               <span className="font-black uppercase tracking-widest text-[10px]">Official Fact Check</span>
+                <span className="font-black uppercase tracking-widest text-[10px]">Official Fact Check</span>
             </div>
           </div>
           
@@ -68,13 +95,13 @@ const GraphicCard = ({ formData, selectedTemplate, templates, isFixedSize = fals
 function GenerateContent() {
   const searchParams = useSearchParams();
   const urlId = searchParams.get('id');
-  const generateRef = useRef(null);
+  const generateRef = useRef<HTMLDivElement>(null);
   
-  const [formData, setFormData] = useState({ claim: 'Loading...', status: 'false', verdict: '...', source: 'GNG' });
+  const [formData, setFormData] = useState<FormDataState>({ claim: 'Loading...', status: 'false', verdict: '...', source: 'GNG' });
   const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const templates = [
+  const templates: Template[] = [
     { id: 'modern', name: 'GNG Dark', gradient: 'from-slate-900 to-black', text: 'text-white' },
     { id: 'classic', name: 'Alert Red', gradient: 'from-red-600 to-red-800', text: 'text-white' },
     { id: 'blue', name: 'Info Blue', gradient: 'from-blue-700 to-indigo-900', text: 'text-white' },
@@ -104,7 +131,7 @@ function GenerateContent() {
   }, [urlId]);
 
   const downloadImage = async () => {
-    if (isGenerating) return;
+    if (isGenerating || !generateRef.current) return;
     setIsGenerating(true);
     const tid = toast.loading('Generating GNG Graphic...');
     
@@ -151,7 +178,6 @@ function GenerateContent() {
             <p className="text-slate-500 font-medium">Edit and style the official GNG debunk card.</p>
           </div>
 
-          {/* EDIT OPTION SECTION */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
              <h3 className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
                 <Edit2 size={14} /> 1. Edit Content
