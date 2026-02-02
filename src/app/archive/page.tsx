@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import CaseModal from "../components/CaseModal"; // Adjust path as needed
+import CaseModal from "@/components/CaseModal";
 import { 
   Search, ArrowLeft, Download, Filter, 
   ChevronLeft, ChevronRight, Copy, CheckCheck,
