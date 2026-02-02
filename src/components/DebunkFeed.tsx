@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import CaseModal from "./CaseModal";
 import { 
   Calendar, ChevronRight, ShieldAlert, Search, Tag, 
-  LayoutGrid, List, ChevronDown, Filter, BarChart3, 
-  RotateCcw, Activity, Copy, CheckCheck 
+  LayoutGrid, List, ChevronDown, Filter, RotateCcw, 
+  Activity, Copy, CheckCheck, ExternalLink
 } from "lucide-react"; 
 
 export default function DebunkFeed() {
+  const router = useRouter();
   const [debunks, setDebunks] = useState<any[]>([]);
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,9 +19,12 @@ export default function DebunkFeed() {
   // Filtering and View States
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [visibleCount, setVisibleCount] = useState(12);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  // Pagination / Threshold Logic
+  const [visibleCount, setVisibleCount] = useState(10); // Start at 10 as requested
+  const REDIRECT_THRESHOLD = 30; // After 30 items, show redirect to full page
 
   useEffect(() => {
     const fetchDebunks = async () => {
@@ -34,7 +39,6 @@ export default function DebunkFeed() {
     fetchDebunks();
   }, []);
 
-  // Category counts for the sidebar
   const categories = useMemo(() => {
     const counts: Record<string, number> = {};
     debunks.forEach(item => {
@@ -44,7 +48,6 @@ export default function DebunkFeed() {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [debunks]);
 
-  // Master Filter Logic (Includes ID searching)
   const filteredDebunks = useMemo(() => {
     let result = debunks.filter((item) => {
       const query = searchQuery.toLowerCase().trim();
@@ -53,7 +56,7 @@ export default function DebunkFeed() {
         item.summary, 
         item.source, 
         item.category,
-        item.id?.toString() // Added ID to search index
+        item.id?.toString() 
       ].some(field => field?.toLowerCase().includes(query));
       
       const matchesCategory = activeCategory === "All" || item.category === activeCategory;
@@ -68,11 +71,13 @@ export default function DebunkFeed() {
   }, [searchQuery, activeCategory, sortOrder, debunks]);
 
   const displayedItems = filteredDebunks.slice(0, visibleCount);
+  const hasMoreLocal = visibleCount < filteredDebunks.length && visibleCount < REDIRECT_THRESHOLD;
+  const showRedirect = filteredDebunks.length > REDIRECT_THRESHOLD && visibleCount >= REDIRECT_THRESHOLD;
 
   const resetFilters = () => {
     setSearchQuery("");
     setActiveCategory("All");
-    setSortOrder("newest");
+    setVisibleCount(10);
   };
 
   return (
@@ -80,7 +85,7 @@ export default function DebunkFeed() {
       <section id="cases" className="py-24 bg-[#f8fafc]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Header & Stats Card */}
+          {/* Header */}
           <div className="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
             <div className="max-w-xl">
               <h2 className="text-4xl md:text-5xl font-black text-[#0f172a] tracking-tight mb-4 flex items-center gap-3">
@@ -94,15 +99,14 @@ export default function DebunkFeed() {
             
             <div className="flex gap-4">
               <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm min-w-[140px]">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Database Entries</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Records</p>
                 <p className="text-3xl font-black text-slate-900">{debunks.length}</p>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-10">
-            
-            {/* Sidebar Filters */}
+            {/* Sidebar */}
             <aside className="w-full lg:w-72 flex-shrink-0">
               <div className="sticky top-24 space-y-10">
                 <div>
@@ -110,18 +114,13 @@ export default function DebunkFeed() {
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
                       <Filter size={14} /> Taxonomy
                     </h3>
-                    {(activeCategory !== "All" || searchQuery) && (
-                      <button onClick={resetFilters} className="text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:underline">
-                        <RotateCcw size={10} /> Reset
-                      </button>
-                    )}
                   </div>
                   <div className="flex flex-wrap lg:flex-col gap-2">
                     <button 
                       onClick={() => setActiveCategory("All")}
                       className={`flex items-center justify-between px-5 py-3.5 rounded-2xl text-sm font-bold transition-all ${activeCategory === "All" ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
                     >
-                      <span>All Insights</span>
+                      <span>All Records</span>
                       <span className={activeCategory === "All" ? 'text-slate-400' : 'text-slate-300'}>{debunks.length}</span>
                     </button>
                     {categories.map(([name, count]) => (
@@ -139,27 +138,25 @@ export default function DebunkFeed() {
 
                 <div className="hidden lg:block p-8 rounded-[2.5rem] bg-slate-900 text-white shadow-2xl relative overflow-hidden">
                   <Activity className="text-white/10 absolute -right-4 -bottom-4" size={120} />
-                  <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">Verification Audit</p>
+                  <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">System Status</p>
                   <p className="text-lg font-bold leading-snug relative z-10">
-                    High-integrity data source for researchers and forensic analysts.
+                    Archive synchronized with global fact-check registries.
                   </p>
                 </div>
               </div>
             </aside>
 
-            {/* Main Content Area */}
+            {/* Main Content */}
             <div className="flex-1">
-              
-              {/* Control Bar */}
               <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
                 <div className="relative w-full">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input 
                     type="text"
-                    placeholder="Search entry ID, title, or keywords..."
+                    placeholder="Search ID, title, or keywords..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-14 pr-4 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all shadow-sm"
+                    className="w-full pl-14 pr-4 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/5 transition-all shadow-sm"
                   />
                 </div>
 
@@ -171,7 +168,6 @@ export default function DebunkFeed() {
                 </div>
               </div>
 
-              {/* Data Display */}
               {displayedItems.length > 0 ? (
                 <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-3"}>
                   {displayedItems.map((item) => (
@@ -184,24 +180,39 @@ export default function DebunkFeed() {
                 </div>
               ) : (
                 <div className="text-center py-40 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                   <Search className="mx-auto text-slate-200 mb-6" size={48} />
-                   <h3 className="text-2xl font-black text-slate-900">Reference Not Found</h3>
-                   <p className="text-slate-500 mt-2">No database entries match your current search criteria.</p>
-                   <button onClick={resetFilters} className="mt-8 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-colors">Reset Global Search</button>
+                   <h3 className="text-2xl font-black text-slate-900">No records found</h3>
+                   <button onClick={resetFilters} className="mt-8 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm">Clear Filters</button>
                 </div>
               )}
 
-              {/* Load More */}
-              {visibleCount < filteredDebunks.length && (
-                <div className="mt-16 flex justify-center">
+              {/* Dynamic Footer / Pagination */}
+              <div className="mt-16 flex flex-col items-center gap-6">
+                {hasMoreLocal && (
                   <button 
-                    onClick={() => setVisibleCount(prev => prev + 8)}
+                    onClick={() => setVisibleCount(prev => prev + 10)}
                     className="flex items-center gap-4 bg-white border-2 border-slate-900 px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] text-slate-900 hover:bg-slate-900 hover:text-white transition-all shadow-xl"
                   >
-                    Load Additional Records <ChevronDown size={20} />
+                    Show More Records <ChevronDown size={20} />
                   </button>
-                </div>
-              )}
+                )}
+
+                {showRedirect && (
+                  <div className="text-center p-12 bg-slate-100 rounded-[3rem] border border-slate-200 w-full max-w-2xl">
+                    <h4 className="text-xl font-black text-slate-900 mb-2">Access Full Archive</h4>
+                    <p className="text-slate-500 font-medium mb-8">This feed is optimized for recent entries. Access our full historical database for deep-dives.</p>
+                    <button 
+                      onClick={() => router.push('/archive')}
+                      className="inline-flex items-center gap-3 bg-blue-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-lg"
+                    >
+                      Browse All {filteredDebunks.length} Entries <ExternalLink size={18} />
+                    </button>
+                  </div>
+                )}
+                
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                  Showing {displayedItems.length} of {filteredDebunks.length} verified records
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -220,7 +231,7 @@ function GridCard({ item, onClick }: { item: any; onClick: () => void }) {
   const entryId = item.id?.toString().slice(0, 8).toUpperCase() || "REF-000";
 
   const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents triggering the card's onClick
+    e.stopPropagation();
     navigator.clipboard.writeText(entryId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -254,15 +265,15 @@ function GridCard({ item, onClick }: { item: any; onClick: () => void }) {
         {item.title}
       </h3>
       
-      <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed mb-8 font-medium">
-        {item.summary}
+      <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed mb-8 font-medium italic">
+        "{item.summary}"
       </p>
 
       <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Tag size={12} className="text-blue-600" />
-            <span className="text-[10px] font-black text-slate-900 uppercase">{item.category}</span>
+            <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{item.category}</span>
           </div>
           <span className="text-[10px] font-bold text-slate-400 uppercase">{item.occurrence_date}</span>
         </div>
