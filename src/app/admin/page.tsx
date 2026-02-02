@@ -39,7 +39,6 @@ export default function AdminPage() {
   const [isEditingPublished, setIsEditingPublished] = useState(false);
 
   const getTodayStr = () => new Date().toLocaleDateString("en-CA");
-
   const categories = ["Political", "Religious", "Gender", "Scam", "Others"];
 
   const [formData, setFormData] = useState({
@@ -57,12 +56,13 @@ export default function AdminPage() {
     occurrence_date: getTodayStr(),
   });
 
-  // --- HELPER: WAYBACK MACHINE ARCHIVING ---
+  // --- HELPER: WAYBACK MACHINE ARCHIVING (Optimized) ---
   async function archiveToWayback(url: string) {
-    if (!url || url.includes("localhost")) return null;
+    if (!url || url.includes("localhost") || url.includes("127.0.0.1")) return null;
     try {
+      // We trigger the save but don't strictly require the result to be successful for our DB to save
       const waybackUrl = `https://web.archive.org/save/${url}`;
-      await fetch(waybackUrl, { mode: 'no-cors' }); 
+      fetch(waybackUrl, { mode: 'no-cors' }); 
       return `https://web.archive.org/web/${url}`;
     } catch (e) {
       console.error("Wayback error:", e);
@@ -70,12 +70,11 @@ export default function AdminPage() {
     }
   }
 
-  // --- HELPER: AUTOMATIC TRANSLATION ---
+  // --- HELPER: TRANSLATION ---
   async function translateToEnglish(text: string) {
     if (!text) return "";
     const isBengali = /[\u0980-\u09FF]/.test(text);
     if (!isBengali) return text;
-
     try {
       const res = await fetch(
         `https://translate.googleapis.com/translate_a/single?client=gtx&sl=bn&tl=en&dt=t&q=${encodeURIComponent(text)}`
@@ -83,12 +82,10 @@ export default function AdminPage() {
       const data = await res.json();
       return data[0].map((s: any) => s[0]).join("");
     } catch (e) {
-      console.error("Translation error:", e);
       return text;
     }
   }
 
-  // --- HELPER: SITE DETECTION ---
   const detectSiteName = (url: string) => {
     if (!url) return "";
     const lowerUrl = url.toLowerCase();
@@ -102,20 +99,16 @@ export default function AdminPage() {
     return "";
   };
 
-  // --- 2. LIFECYCLE & DATA FETCHING ---
+  // --- 2. DATA FETCHING ---
   useEffect(() => {
     fetchPending();
     fetchPublished();
-
     const channel = supabase
       .channel("live-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "pending_scrapes" }, () => fetchPending())
       .on("postgres_changes", { event: "*", schema: "public", table: "debunks" }, () => fetchPublished())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   async function fetchPending() {
@@ -130,15 +123,17 @@ export default function AdminPage() {
 
   // --- 3. MODAL HANDLERS ---
   const openReview = async (item: any) => {
-    setMessage("Translating content...");
-    const translatedTitle = await translateToEnglish(item.title);
-    const translatedSummary = await translateToEnglish(item.summary);
+    setMessage("Translating...");
+    const [tTitle, tSummary] = await Promise.all([
+        translateToEnglish(item.title),
+        translateToEnglish(item.summary)
+    ]);
     
     const dateObj = item.occurrence_date ? new Date(item.occurrence_date) : new Date();
     setReviewData({
       ...item,
-      title: translatedTitle,
-      summary: translatedSummary,
+      title: tTitle,
+      summary: tSummary,
       verdict: item.verdict || "Fake",
       severity: item.severity || "medium",
       category: item.category || "Others",
@@ -153,7 +148,7 @@ export default function AdminPage() {
     setMessage("");
   };
 
-  const openEditPublished = async (item: any) => {
+  const openEditPublished = (item: any) => {
     const dateObj = item.occurrence_date ? new Date(item.occurrence_date) : new Date();
     setReviewData({
       ...item,
@@ -164,24 +159,27 @@ export default function AdminPage() {
     setManualFile(null);
   };
 
-  // --- 4. CORE DATABASE ACTIONS ---
+  // --- 4. OPTIMIZED CORE ACTIONS ---
+
+  // Optimized Final Save (Review Modal)
   async function handleFinalSave() {
     if (!reviewData?.id && isEditingPublished) return;
     setLoading(true);
-    setMessage("Archiving to Global Web Library...");
+    setMessage("Syncing Evidence...");
 
     try {
       let finalMediaUrl = reviewData.media_url;
 
+      // 1. Parallel Task: Image Upload (if new file)
       if (manualFile) {
         const fileExt = manualFile.name.split(".").pop();
         const fileName = `archive-${Date.now()}.${fileExt}`;
-        await supabase.storage.from("evidence").upload(fileName, manualFile);
-        const { data: { publicUrl } } = supabase.storage.from("evidence").getPublicUrl(fileName);
-        finalMediaUrl = publicUrl;
+        await supabase.storage.from("evidence").upload(fileName, manualFile, { upsert: true });
+        finalMediaUrl = supabase.storage.from("evidence").getPublicUrl(fileName).data.publicUrl;
       }
 
-      const waybackSnapshotUrl = await archiveToWayback(reviewData.source_link);
+      // 2. Background Task: Wayback (We start it but don't await the 10-second response)
+      const waybackPromise = archiveToWayback(reviewData.source_link);
 
       const payload = {
         title: reviewData.title,
@@ -194,24 +192,31 @@ export default function AdminPage() {
         source: reviewData.source,
         media_url: finalMediaUrl,
         source_link: reviewData.source_link,
-        wayback_url: waybackSnapshotUrl, 
         occurrence_date: reviewData.occurrence_date,
         is_permanently_stored: true,
         archived_at: new Date().toISOString()
       };
 
+      let recordId = reviewData.id;
+
       if (isEditingPublished) {
         await supabase.from("debunks").update(payload).eq("id", reviewData.id);
-        setMessage("✅ Archive Updated!");
+        setMessage("✅ Updated!");
       } else {
         const slugToUse = reviewData.slug || reviewData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
-        await supabase.from("debunks").insert([{ ...payload, slug: slugToUse }]);
+        const { data: newEntry } = await supabase.from("debunks").insert([{ ...payload, slug: slugToUse }]).select().single();
+        if (newEntry) recordId = newEntry.id;
         await supabase.from("pending_scrapes").delete().eq("id", reviewData.id);
-        setMessage("✅ Permanently Archived & Mirrored!");
+        setMessage("✅ Permanently Archived!");
       }
 
-      await fetchPublished();
-      await fetchPending();
+      // 3. Final Step: Background Update Wayback URL once it's ready
+      waybackPromise.then(url => {
+          if (url) supabase.from("debunks").update({ wayback_url: url }).eq("id", recordId).then(() => fetchPublished());
+      });
+
+      fetchPublished();
+      fetchPending();
       setIsReviewOpen(false);
     } catch (err: any) {
       alert("Error: " + err.message);
@@ -221,34 +226,38 @@ export default function AdminPage() {
     }
   }
 
+  // Optimized Manual Submit (Left Sidebar)
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage("Initiating Global Mirror...");
+    setMessage("Storing Evidence...");
     try {
       let mediaUrl = null;
       if (file) {
-        const fileName = `manual-archive-${Date.now()}-${file.name}`;
-        await supabase.storage.from("evidence").upload(fileName, file);
-        const { data: { publicUrl } } = supabase.storage.from("evidence").getPublicUrl(fileName);
-        mediaUrl = publicUrl;
+        const fileName = `manual-${Date.now()}-${file.name}`;
+        await supabase.storage.from("evidence").upload(fileName, file, { upsert: true });
+        mediaUrl = supabase.storage.from("evidence").getPublicUrl(fileName).data.publicUrl;
       }
 
-      const waybackSnapshotUrl = await archiveToWayback(formData.source_link);
+      const waybackPromise = archiveToWayback(formData.source_link);
       const slugToUse = formData.slug || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Math.floor(Math.random() * 100);
       
-      const { error: dbError } = await supabase.from("debunks").insert([{ 
+      const { data: newEntry, error: dbError } = await supabase.from("debunks").insert([{ 
         ...formData, 
         slug: slugToUse, 
         media_url: mediaUrl,
-        wayback_url: waybackSnapshotUrl,
         is_permanently_stored: true,
         archived_at: new Date().toISOString()
-      }]);
+      }]).select().single();
       
       if (dbError) throw dbError;
 
-      setMessage("✅ Success! Mirrored to Wayback Machine.");
+      // Background Wayback Archival
+      waybackPromise.then(url => {
+        if (url && newEntry) supabase.from("debunks").update({ wayback_url: url }).eq("id", newEntry.id).then(() => fetchPublished());
+      });
+
+      setMessage("✅ Success! Archiving in background.");
       setFormData({
         title: "", verdict: "Fake", severity: "medium", category: "Others", summary: "", platform: "Web", country: "Bangladesh",
         source: "", source_link: "", method: "AI Pattern Review", slug: "", occurrence_date: getTodayStr(),
@@ -319,7 +328,6 @@ export default function AdminPage() {
                   </select>
                 </div>
 
-                {/* CATEGORY SELECT */}
                 <div className="relative">
                   <select 
                     className="w-full border p-3 pl-10 rounded-xl text-xs text-black bg-slate-50 font-bold outline-none appearance-none" 
@@ -508,7 +516,7 @@ export default function AdminPage() {
               </button>
 
               <button onClick={handleFinalSave} disabled={loading} className="flex-1 py-5 bg-emerald-600 text-white font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl hover:bg-slate-900 transition-all shadow-xl active:scale-[0.98] flex items-center justify-center gap-3">
-                {loading ? <Loader2 className="animate-spin" /> : <><Archive size={16}/> {isEditingPublished ? "Update Archive" : "Seal & Mirror to Wayback"}</>}
+                {loading ? <Loader2 className="animate-spin" /> : <><Archive size={16}/> {isEditingPublished ? "Update Archive" : "Seal & Mirror"}</>}
               </button>
             </div>
           </div>
