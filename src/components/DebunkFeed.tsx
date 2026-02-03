@@ -23,14 +23,15 @@ export default function DebunkFeed() {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   // Pagination / Threshold Logic
-  const [visibleCount, setVisibleCount] = useState(10); // Start at 10 as requested
-  const REDIRECT_THRESHOLD = 30; // After 30 items, show redirect to full page
+  const [visibleCount, setVisibleCount] = useState(10); 
+  const REDIRECT_THRESHOLD = 30; 
 
   useEffect(() => {
     const fetchDebunks = async () => {
       const { data, error } = await supabase
         .from("debunks")
         .select("*")
+        .eq("is_published", true) // CRITICAL: Only fetch visible items
         .order("occurrence_date", { ascending: false });
 
       if (error) console.error("Error fetching debunks:", error);
@@ -99,7 +100,7 @@ export default function DebunkFeed() {
             
             <div className="flex gap-4">
               <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm min-w-[140px]">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Records</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Live Records</p>
                 <p className="text-3xl font-black text-slate-900">{debunks.length}</p>
               </div>
             </div>
@@ -138,7 +139,7 @@ export default function DebunkFeed() {
 
                 <div className="hidden lg:block p-8 rounded-[2.5rem] bg-slate-900 text-white shadow-2xl relative overflow-hidden">
                   <Activity className="text-white/10 absolute -right-4 -bottom-4" size={120} />
-                  <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">System Status</p>
+                  <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">Registry</p>
                   <p className="text-lg font-bold leading-snug relative z-10">
                     Archive synchronized with global fact-check registries.
                   </p>
@@ -153,7 +154,7 @@ export default function DebunkFeed() {
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input 
                     type="text"
-                    placeholder="Search ID, title, or keywords..."
+                    placeholder="Search archive or keywords..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-14 pr-4 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/5 transition-all shadow-sm"
@@ -180,7 +181,7 @@ export default function DebunkFeed() {
                 </div>
               ) : (
                 <div className="text-center py-40 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                   <h3 className="text-2xl font-black text-slate-900">No records found</h3>
+                   <h3 className="text-2xl font-black text-slate-900">No matching records</h3>
                    <button onClick={resetFilters} className="mt-8 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm">Clear Filters</button>
                 </div>
               )}
@@ -192,25 +193,25 @@ export default function DebunkFeed() {
                     onClick={() => setVisibleCount(prev => prev + 10)}
                     className="flex items-center gap-4 bg-white border-2 border-slate-900 px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] text-slate-900 hover:bg-slate-900 hover:text-white transition-all shadow-xl"
                   >
-                    Show More Records <ChevronDown size={20} />
+                    Load More <ChevronDown size={20} />
                   </button>
                 )}
 
                 {showRedirect && (
                   <div className="text-center p-12 bg-slate-100 rounded-[3rem] border border-slate-200 w-full max-w-2xl">
                     <h4 className="text-xl font-black text-slate-900 mb-2">Access Full Archive</h4>
-                    <p className="text-slate-500 font-medium mb-8">This feed is optimized for recent entries. Access our full historical database for deep-dives.</p>
+                    <p className="text-slate-500 font-medium mb-8">Access our full historical database for deep-dives and research.</p>
                     <button 
                       onClick={() => router.push('/archive')}
                       className="inline-flex items-center gap-3 bg-blue-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-lg"
                     >
-                      Browse All {filteredDebunks.length} Entries <ExternalLink size={18} />
+                      Browse {filteredDebunks.length} Records <ExternalLink size={18} />
                     </button>
                   </div>
                 )}
                 
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                  Showing {displayedItems.length} of {filteredDebunks.length} verified records
+                  Showing {displayedItems.length} of {filteredDebunks.length} public records
                 </p>
               </div>
             </div>

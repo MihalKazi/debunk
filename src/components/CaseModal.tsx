@@ -141,10 +141,10 @@ export default function CaseModal({ isOpen, onClose, data }: CaseModalProps) {
                     </div>
                     <div className="text-left">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 group-hover:text-emerald-100 transition-colors">
-                        Independent Forensic Mirror
+                        GNG Exclusive Archieve
                       </p>
                       <p className="text-lg font-bold text-slate-900 group-hover:text-white transition-colors">
-                        View Historical Snapshot
+                        View Permanent Archieve
                       </p>
                     </div>
                   </div>

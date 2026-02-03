@@ -27,6 +27,7 @@ export default function FullArchive() {
       const { data, error } = await supabase
         .from("debunks")
         .select("*")
+        .eq("is_published", true) // Ensures only published records are visible
         .order("occurrence_date", { ascending: false });
 
       if (error) console.error(error);
@@ -124,9 +125,17 @@ export default function FullArchive() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {paginatedData.map((item) => (
-                  <TableRow key={item.id} item={item} onOpen={() => { setSelectedCase(item); setIsModalOpen(true); }} />
-                ))}
+                {paginatedData.length > 0 ? (
+                  paginatedData.map((item) => (
+                    <TableRow key={item.id} item={item} onOpen={() => { setSelectedCase(item); setIsModalOpen(true); }} />
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-8 py-20 text-center text-slate-400 font-bold">
+                      No published records found matching your search.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -145,7 +154,7 @@ export default function FullArchive() {
                 <ChevronLeft size={20} />
               </button>
               <button 
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || totalPages === 0}
                 onClick={() => setCurrentPage(p => p + 1)}
                 className="p-3 rounded-xl border border-slate-200 bg-white disabled:opacity-30 hover:bg-slate-50 transition-all"
               >

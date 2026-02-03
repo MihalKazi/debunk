@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
 import {
@@ -19,6 +19,9 @@ import {
   Archive,
   History,
   Tag,
+  AlertTriangle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -56,11 +59,51 @@ export default function AdminPage() {
     occurrence_date: getTodayStr(),
   });
 
-  // --- HELPER: WAYBACK MACHINE ARCHIVING (Optimized) ---
+  // --- HELPER: SITE DETECTION ---
+  const detectSiteName = (url: string) => {
+    if (!url) return "";
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes("rumorscanner.com")) return "Rumour Scanner";
+    if (lowerUrl.includes("dismislab.com")) return "Dismislab";
+    if (lowerUrl.includes("fact-watch.org")) return "FactWatch";
+    if (lowerUrl.includes("facebook.com")) return "Facebook";
+    if (lowerUrl.includes("twitter.com") || lowerUrl.includes("x.com")) return "X (Twitter)";
+    if (lowerUrl.includes("youtube.com")) return "YouTube";
+    if (lowerUrl.includes("boomlive.in")) return "BOOM Live";
+    return "";
+  };
+
+  // --- HELPER: SEARCH LOGIC ---
+  const globalFilter = (list: any[]) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return list;
+
+    return list.filter((item) => {
+      const displaySource = item.source || detectSiteName(item.source_link) || "";
+      
+      const searchFields = [
+        item.title,
+        item.summary,
+        item.category,
+        item.platform,
+        item.country,
+        displaySource, 
+        item.id?.toString(),
+      ];
+
+      return searchFields.some((field) => 
+        field?.toString().toLowerCase().includes(query)
+      );
+    });
+  };
+
+  const filteredScrapes = useMemo(() => globalFilter(pendingScrapes), [searchQuery, pendingScrapes]);
+  const filteredPublished = useMemo(() => globalFilter(publishedDebunks), [searchQuery, publishedDebunks]);
+
+  // --- HELPER: WAYBACK MACHINE ---
   async function archiveToWayback(url: string) {
     if (!url || url.includes("localhost") || url.includes("127.0.0.1")) return null;
     try {
-      // We trigger the save but don't strictly require the result to be successful for our DB to save
       const waybackUrl = `https://web.archive.org/save/${url}`;
       fetch(waybackUrl, { mode: 'no-cors' }); 
       return `https://web.archive.org/web/${url}`;
@@ -86,23 +129,9 @@ export default function AdminPage() {
     }
   }
 
-  const detectSiteName = (url: string) => {
-    if (!url) return "";
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes("rumorscanner.com")) return "Rumour Scanner";
-    if (lowerUrl.includes("dismislab.com")) return "Dismislab";
-    if (lowerUrl.includes("fact-watch.org")) return "FactWatch";
-    if (lowerUrl.includes("facebook.com")) return "Facebook";
-    if (lowerUrl.includes("twitter.com") || lowerUrl.includes("x.com")) return "X (Twitter)";
-    if (lowerUrl.includes("youtube.com")) return "YouTube";
-    if (lowerUrl.includes("boomlive.in")) return "BOOM Live";
-    return "";
-  };
-
-  // --- 2. DATA FETCHING ---
+  // --- 2. DATA FETCHING (WITH DRAFT LOGIC) ---
   useEffect(() => {
-    fetchPending();
-    fetchPublished();
+    loadData();
     const channel = supabase
       .channel("live-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "pending_scrapes" }, () => fetchPending())
@@ -111,17 +140,43 @@ export default function AdminPage() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  async function fetchPending() {
-    const { data } = await supabase.from("pending_scrapes").select("*").order("created_at", { ascending: false });
-    setPendingScrapes(data || []);
+  async function loadData() {
+    const published = await fetchPublished();
+    await fetchPending(published);
+  }
+
+  async function fetchPending(existingPublished?: any[]) {
+    const { data: inbox } = await supabase.from("pending_scrapes").select("*").order("created_at", { ascending: false });
+    
+    // FILTER LOGIC: Remove items from Inbox if they already exist in Published
+    const archivedList = existingPublished || publishedDebunks;
+    const archivedTitles = new Set(archivedList.map(item => item.title.toLowerCase().trim()));
+    const filteredInbox = (inbox || []).filter(item => !archivedTitles.has(item.title.toLowerCase().trim()));
+    
+    setPendingScrapes(filteredInbox);
+    return filteredInbox;
   }
 
   async function fetchPublished() {
     const { data } = await supabase.from("debunks").select("*").order("occurrence_date", { ascending: false });
-    setPublishedDebunks(data || []);
+    const list = data || [];
+    setPublishedDebunks(list);
+    return list;
   }
 
-  // --- 3. MODAL HANDLERS ---
+  // --- 3. PUBLISH TOGGLE LOGIC ---
+  const togglePublishStatus = async (id: string, currentStatus: boolean) => {
+    setLoading(true);
+    const { error } = await supabase.from("debunks").update({ is_published: !currentStatus }).eq("id", id);
+    if (!error) {
+      setMessage(!currentStatus ? "✅ Entry Published Live" : "🌑 Entry Moved to Drafts");
+      fetchPublished();
+    }
+    setLoading(false);
+    setTimeout(() => setMessage(""), 3000);
+  };
+
+  // --- 4. MODAL HANDLERS ---
   const openReview = async (item: any) => {
     setMessage("Translating...");
     const [tTitle, tSummary] = await Promise.all([
@@ -129,7 +184,9 @@ export default function AdminPage() {
         translateToEnglish(item.summary)
     ]);
     
+    // Ensure date is formatted for input type="date"
     const dateObj = item.occurrence_date ? new Date(item.occurrence_date) : new Date();
+    
     setReviewData({
       ...item,
       title: tTitle,
@@ -159,9 +216,7 @@ export default function AdminPage() {
     setManualFile(null);
   };
 
-  // --- 4. OPTIMIZED CORE ACTIONS ---
-
-  // Optimized Final Save (Review Modal)
+  // --- 5. CORE ACTIONS ---
   async function handleFinalSave() {
     if (!reviewData?.id && isEditingPublished) return;
     setLoading(true);
@@ -170,7 +225,6 @@ export default function AdminPage() {
     try {
       let finalMediaUrl = reviewData.media_url;
 
-      // 1. Parallel Task: Image Upload (if new file)
       if (manualFile) {
         const fileExt = manualFile.name.split(".").pop();
         const fileName = `archive-${Date.now()}.${fileExt}`;
@@ -178,7 +232,6 @@ export default function AdminPage() {
         finalMediaUrl = supabase.storage.from("evidence").getPublicUrl(fileName).data.publicUrl;
       }
 
-      // 2. Background Task: Wayback (We start it but don't await the 10-second response)
       const waybackPromise = archiveToWayback(reviewData.source_link);
 
       const payload = {
@@ -204,19 +257,19 @@ export default function AdminPage() {
         setMessage("✅ Updated!");
       } else {
         const slugToUse = reviewData.slug || reviewData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
-        const { data: newEntry } = await supabase.from("debunks").insert([{ ...payload, slug: slugToUse }]).select().single();
+        // NOTE: New entries default to published
+        const { data: newEntry } = await supabase.from("debunks").insert([{ ...payload, slug: slugToUse, is_published: true }]).select().single();
         if (newEntry) recordId = newEntry.id;
         await supabase.from("pending_scrapes").delete().eq("id", reviewData.id);
         setMessage("✅ Permanently Archived!");
       }
 
-      // 3. Final Step: Background Update Wayback URL once it's ready
       waybackPromise.then(url => {
           if (url) supabase.from("debunks").update({ wayback_url: url }).eq("id", recordId).then(() => fetchPublished());
       });
 
-      fetchPublished();
-      fetchPending();
+      const updatedPublished = await fetchPublished();
+      fetchPending(updatedPublished); // Re-run filter
       setIsReviewOpen(false);
     } catch (err: any) {
       alert("Error: " + err.message);
@@ -226,9 +279,16 @@ export default function AdminPage() {
     }
   }
 
-  // Optimized Manual Submit (Left Sidebar)
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // DUPLICATE CHECK
+    const isDuplicate = publishedDebunks.some(d => d.title.toLowerCase().trim() === formData.title.toLowerCase().trim());
+    if(isDuplicate) { 
+        alert("This record already exists in the archive!"); 
+        return; 
+    }
+
     setLoading(true);
     setMessage("Storing Evidence...");
     try {
@@ -247,12 +307,12 @@ export default function AdminPage() {
         slug: slugToUse, 
         media_url: mediaUrl,
         is_permanently_stored: true,
+        is_published: true, // Default to true for manual creation
         archived_at: new Date().toISOString()
       }]).select().single();
       
       if (dbError) throw dbError;
 
-      // Background Wayback Archival
       waybackPromise.then(url => {
         if (url && newEntry) supabase.from("debunks").update({ wayback_url: url }).eq("id", newEntry.id).then(() => fetchPublished());
       });
@@ -263,7 +323,8 @@ export default function AdminPage() {
         source: "", source_link: "", method: "AI Pattern Review", slug: "", occurrence_date: getTodayStr(),
       });
       setFile(null);
-      fetchPublished();
+      const updatedPublished = await fetchPublished();
+      fetchPending(updatedPublished);
     } catch (error: any) {
       setMessage("❌ Error: " + error.message);
     } finally {
@@ -275,11 +336,11 @@ export default function AdminPage() {
   const deletePublishedRecord = async (id: string, title: string) => {
     if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
     const { error } = await supabase.from("debunks").delete().eq("id", id);
-    if (!error) fetchPublished();
+    if (!error) {
+        const updatedPublished = await fetchPublished();
+        fetchPending(updatedPublished);
+    }
   };
-
-  const filteredScrapes = pendingScrapes.filter((i) => i.title?.toLowerCase().includes(searchQuery.toLowerCase()));
-  const filteredPublished = publishedDebunks.filter((i) => i.title?.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -369,7 +430,7 @@ export default function AdminPage() {
               <div className="p-6 border-b">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input type="text" placeholder="Search archive..." className="w-full pl-11 p-3 bg-slate-100 rounded-2xl text-sm text-black outline-none border border-transparent focus:border-blue-300 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                  <input type="text" placeholder="Search Title, Summary, Category, or Source..." className="w-full pl-11 p-3 bg-slate-100 rounded-2xl text-sm text-black outline-none border border-transparent focus:border-blue-300 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
               </div>
               <div className="p-6 flex-1 overflow-y-auto">
@@ -394,6 +455,17 @@ export default function AdminPage() {
                         <Palette size={18} />
                       </button>
 
+                      {/* NEW: Toggle Publish Status */}
+                      {activeTab === "published" && (
+                         <button 
+                            onClick={() => togglePublishStatus(item.id, item.is_published !== false)} 
+                            className={`p-2 border rounded-xl shadow-sm transition-all ${item.is_published !== false ? 'bg-white text-slate-600 hover:bg-slate-100' : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'}`}
+                            title={item.is_published !== false ? "Published (Click to Draft)" : "Draft (Click to Publish)"}
+                         >
+                           {item.is_published !== false ? <Eye size={18} /> : <EyeOff size={18} />}
+                         </button>
+                      )}
+
                       {activeTab === "pending" ? (
                         <button onClick={() => openReview(item)} className="p-2 bg-white border rounded-xl text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"><Check size={18} /></button>
                       ) : (
@@ -401,7 +473,7 @@ export default function AdminPage() {
                       )}
                       <button onClick={() => {
                         if (activeTab === "pending") {
-                          supabase.from("pending_scrapes").delete().eq("id", item.id).then(fetchPending);
+                          supabase.from("pending_scrapes").delete().eq("id", item.id).then(() => fetchPending(publishedDebunks));
                         } else {
                           deletePublishedRecord(item.id, item.title);
                         }
@@ -409,13 +481,16 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+                {(activeTab === "pending" ? filteredScrapes : filteredPublished).length === 0 && (
+                  <div className="text-center py-20 text-slate-400 font-bold text-sm">No records found matching your search.</div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* REVIEW MODAL */}
+      {/* REVIEW MODAL (FULL FEATURES RESTORED) */}
       {isReviewOpen && reviewData && (
         <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
@@ -433,6 +508,7 @@ export default function AdminPage() {
                 <input className="w-full p-4 border border-slate-200 rounded-2xl font-bold bg-white text-lg outline-none focus:ring-2 ring-blue-500/20" value={reviewData.title} onChange={(e) => setReviewData({ ...reviewData, title: e.target.value })} />
               </div>
 
+              {/* RESTORED: Detailed Metadata Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Platform</label>
@@ -454,6 +530,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* RESTORED: Category, Verdict, Severity, Date */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category</label>
@@ -471,6 +548,33 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Verdict</label>
+                  <select 
+                    className="w-full p-4 border border-slate-200 rounded-2xl bg-white outline-none font-bold text-sm" 
+                    value={reviewData.verdict} 
+                    onChange={(e) => setReviewData({ ...reviewData, verdict: e.target.value })}
+                  >
+                    <option value="Fake">Fake</option>
+                    <option value="Misleading">Misleading</option>
+                    <option value="Verified">Verified</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Severity</label>
+                  <select 
+                    className="w-full p-4 border border-slate-200 rounded-2xl bg-white outline-none font-bold text-sm" 
+                    value={reviewData.severity} 
+                    onChange={(e) => setReviewData({ ...reviewData, severity: e.target.value })}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Original URL (Source)</label>
                 <div className="relative">
@@ -484,6 +588,7 @@ export default function AdminPage() {
                 <textarea rows={4} className="w-full p-4 border border-slate-200 rounded-2xl text-base bg-white outline-none leading-relaxed" value={reviewData.summary} onChange={(e) => setReviewData({ ...reviewData, summary: e.target.value })} />
               </div>
 
+              {/* RESTORED: Image Preview & Upload */}
               <div className="p-6 bg-[#0f172a] rounded-[2rem] border border-slate-800 flex items-center justify-between gap-6 shadow-xl">
                 <div className="flex items-center gap-6">
                   <div className="w-24 h-24 bg-white rounded-2xl border-2 border-white/10 shadow-sm overflow-hidden flex-shrink-0 flex items-center justify-center">
