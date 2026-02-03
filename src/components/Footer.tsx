@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Users } from "lucide-react"; 
 
 export default function Footer() {
   return (
@@ -39,7 +40,6 @@ export default function Footer() {
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
                 © 2024-2026 GNG REPOSITORY
               </p>
-              {/* --- UPDATED COPYRIGHT --- */}
               <p className="text-[9px] text-slate-400 font-medium tracking-widest uppercase mt-1">
                 A project by <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-white transition-colors underline decoration-blue-400/30 underline-offset-4">Activate Rights</a>. All rights reserved.
               </p>
@@ -61,9 +61,30 @@ export default function Footer() {
             
             <div className="h-px w-32 bg-slate-700/50" />
             
-            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">
-              SYSTEM-STATUS: <span className="text-emerald-500">ACTIVE</span>
-            </p>
+            <div className="flex flex-col items-center md:items-end gap-3">
+                <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">
+                SYSTEM-STATUS: <span className="text-emerald-500">ACTIVE</span>
+                </p>
+
+                {/* --- UPDATED TEAM SECTION (High Visibility) --- */}
+                <Link href="/team" className="group flex items-center gap-4 mt-2 px-5 py-3 rounded-xl border border-slate-600 bg-[#162c4a] hover:bg-blue-600 hover:border-blue-400 transition-all duration-300 shadow-lg shadow-black/20">
+                    
+                    {/* Icon Box */}
+                    <div className="p-2 bg-slate-800 rounded-lg group-hover:bg-white/20 transition-colors border border-slate-700 group-hover:border-transparent">
+                        <Users size={16} className="text-blue-400 group-hover:text-white" />
+                    </div>
+
+                    <div className="flex flex-col text-right">
+                        <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold group-hover:text-blue-100 mb-0.5">
+                            Who We Are
+                        </span>
+                        <span className="text-[10px] font-bold text-white uppercase tracking-widest group-hover:text-white transition-colors">
+                            GNG Repository Team
+                        </span>
+                    </div>
+                </Link>
+            </div>
+
           </div>
 
         </div>
