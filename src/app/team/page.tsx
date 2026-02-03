@@ -72,7 +72,7 @@ export default function TeamPage() {
       icon: <Database size={24} />,
       color: "text-emerald-600",
       bg: "bg-emerald-500",
-      image: "/team/jobair.jpg",
+      image: "/team/Jobair.jpg",
       desc: "Architecting information pipelines and managing high-volume verification datasets.",
       socials: {
         github: "https://github.com/jobair",
