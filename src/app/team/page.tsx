@@ -89,9 +89,9 @@ export default function TeamPage() {
       image: "/team/Jobair.jpg",
       desc: "Architecting information pipelines and managing high-volume verification datasets.",
       socials: {
-        github: "https://github.com/jobair",
+        github: "",
         linkedin: "https://www.linkedin.com/in/mohammad-jobair-ahmad/",
-        portfolio: "https://jobair.dev" 
+        portfolio: "" 
       }
     },
     {
@@ -106,7 +106,7 @@ export default function TeamPage() {
       socials: {
         github: "https://github.com/MihalKazi",
         linkedin: "https://www.linkedin.com/in/kazi-rohanuzzaman-mehal07/",
-        portfolio: "https://mehal.tech" 
+        portfolio: "" 
       }
     },
   ];
