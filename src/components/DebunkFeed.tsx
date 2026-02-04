@@ -84,7 +84,8 @@ export default function DebunkFeed() {
   return (
     <>
       <section id="cases" className="py-24 bg-[#f8fafc]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Adjusted container max-width slightly to accommodate 3 columns better */}
+        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* Header */}
           <div className="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
@@ -106,9 +107,9 @@ export default function DebunkFeed() {
             </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-10">
+          <div className="flex flex-col lg:flex-row gap-8">
             {/* Sidebar */}
-            <aside className="w-full lg:w-72 flex-shrink-0">
+            <aside className="w-full lg:w-64 flex-shrink-0">
               <div className="sticky top-24 space-y-10">
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -148,7 +149,7 @@ export default function DebunkFeed() {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
                 <div className="relative w-full">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -170,7 +171,8 @@ export default function DebunkFeed() {
               </div>
 
               {displayedItems.length > 0 ? (
-                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-3"}>
+                // UPDATED GRID: lg:grid-cols-3 and gap-4 for 3 items per row
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
                   {displayedItems.map((item) => (
                     viewMode === 'grid' ? (
                       <GridCard key={item.id} item={item} onClick={() => { setSelectedCase(item); setIsModalOpen(true); }} />
@@ -241,44 +243,44 @@ function GridCard({ item, onClick }: { item: any; onClick: () => void }) {
   return (
     <article 
       onClick={onClick} 
-      className="group bg-white rounded-3xl border border-slate-200 p-8 hover:shadow-2xl hover:border-blue-500 transition-all duration-400 cursor-pointer relative flex flex-col min-h-[300px]"
+      className="group bg-white rounded-3xl border border-slate-200 p-6 hover:shadow-2xl hover:border-blue-500 transition-all duration-400 cursor-pointer relative flex flex-col min-h-[280px]"
     >
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex justify-between items-start mb-5">
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ref. ID</span>
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Ref. ID</span>
           <button 
             onClick={handleCopy}
-            className="flex items-center gap-2 group/id bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-100 transition-colors"
+            className="flex items-center gap-2 group/id bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded-lg border border-slate-100 transition-colors"
           >
-            <span className="text-xs font-mono font-bold text-slate-900">{entryId}</span>
-            {copied ? <CheckCheck size={12} className="text-green-600" /> : <Copy size={12} className="text-slate-400 group-hover/id:text-blue-600" />}
+            <span className="text-[10px] font-mono font-bold text-slate-900">{entryId}</span>
+            {copied ? <CheckCheck size={10} className="text-green-600" /> : <Copy size={10} className="text-slate-400 group-hover/id:text-blue-600" />}
           </button>
         </div>
         
-        <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+        <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${
           isFake ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
         }`}>
           {item.verdict}
         </div>
       </div>
 
-      <h3 className="text-xl font-black text-slate-900 mb-4 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
+      <h3 className="text-lg font-black text-slate-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
         {item.title}
       </h3>
       
-      <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed mb-8 font-medium italic">
+      <p className="text-slate-500 text-xs line-clamp-3 leading-relaxed mb-6 font-medium italic">
         "{item.summary}"
       </p>
 
-      <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Tag size={12} className="text-blue-600" />
-            <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{item.category}</span>
+      <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Tag size={10} className="text-blue-600" />
+            <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest truncate max-w-[80px]">{item.category}</span>
           </div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase">{item.occurrence_date}</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase">{item.occurrence_date}</span>
         </div>
-        <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+        <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
       </div>
     </article>
   );
