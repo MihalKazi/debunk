@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
+// 1. Import the BackToTop component
+import BackToTop from "@/components/BackToTop";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif" });
@@ -74,6 +76,9 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         {children}
+        
+        {/* 2. Add the component here so it is available globally */}
+        <BackToTop />
       </body>
     </html>
   );
