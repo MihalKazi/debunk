@@ -91,7 +91,7 @@ export default function DebunkFeed() {
             <div className="max-w-xl">
               <h2 className="text-4xl md:text-5xl font-black text-[#0f172a] tracking-tight mb-4 flex items-center gap-3">
                 <ShieldAlert className="text-blue-600" size={40} />
-                Forensic <span className="text-blue-600">Archive</span>
+                GNG <span className="text-blue-600">Archive</span>
               </h2>
               <p className="text-slate-500 font-medium text-lg leading-relaxed">
                 Professional database of verified synthetic media and digital deception records.
