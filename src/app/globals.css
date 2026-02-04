@@ -7,7 +7,9 @@
   --background-start-rgb: 248, 250, 252; /* Slate-50 */
   --background-end-rgb: 255, 255, 255;
 }
-
+html {
+  scroll-behavior: smooth;
+}
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(

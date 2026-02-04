@@ -27,7 +27,7 @@ export default function FullArchive() {
       const { data, error } = await supabase
         .from("debunks")
         .select("*")
-        .eq("is_published", true) // Ensures only published records are visible
+        .eq("is_published", true)
         .order("occurrence_date", { ascending: false });
 
       if (error) console.error(error);
@@ -44,6 +44,41 @@ export default function FullArchive() {
         .some(field => field?.toLowerCase().includes(searchQuery.toLowerCase().trim()))
     );
   }, [searchQuery, debunks]);
+
+  // CSV Export Function
+  const downloadCSV = () => {
+    if (!filteredData.length) return;
+
+    // Define headers
+    const headers = ["ID", "Title", "Verdict", "Date", "Category", "Source", "Summary"];
+    
+    // Convert data to CSV format
+    const csvContent = [
+      headers.join(","),
+      ...filteredData.map(item => {
+        const row = [
+          item.id,
+          `"${(item.title || "").replace(/"/g, '""')}"`, // Escape quotes
+          item.verdict,
+          item.occurrence_date,
+          item.category,
+          `"${(item.source || "").replace(/"/g, '""')}"`,
+          `"${(item.summary || "").replace(/"/g, '""')}"`
+        ];
+        return row.join(",");
+      })
+    ].join("\n");
+
+    // Create a blob and trigger download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `gng_archive_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -86,7 +121,10 @@ export default function FullArchive() {
           </div>
           
           <div className="flex gap-3">
-             <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all text-sm">
+             <button 
+                onClick={downloadCSV}
+                className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all text-sm active:scale-95"
+             >
                 <FileSpreadsheet size={18} className="text-green-600" /> Export CSV
              </button>
           </div>

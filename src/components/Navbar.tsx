@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react"; // Added X icon for closing
+import { Menu, X } from "lucide-react"; 
 import { Logo } from "@/components/Logo";
 
 export default function Navbar() {
@@ -31,9 +31,6 @@ export default function Navbar() {
             </Link>
             <Link href="/methodology" className="text-sm font-bold uppercase tracking-widest text-slate-700 hover:text-[#1e3a5f] transition-colors">
               Methodology
-            </Link>
-             <Link href="/database" className="text-sm font-bold uppercase tracking-widest text-slate-700 hover:text-[#1e3a5f] transition-colors">
-              Database
             </Link>
           </nav>
 
@@ -77,13 +74,7 @@ export default function Navbar() {
           >
             Methodology
           </Link>
-          <Link 
-            href="/database" 
-            onClick={toggleMenu}
-            className="text-lg font-bold uppercase tracking-widest text-slate-700 hover:text-blue-600"
-          >
-            Database
-          </Link>
+          
           <div className="h-px bg-slate-100 w-full my-2" />
           <a 
             href="mailto:info@activaterights.org" 

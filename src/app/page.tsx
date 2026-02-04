@@ -4,8 +4,7 @@ import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import TrendChart from "@/components/TrendChart";
 import DebunkFeed from "@/components/DebunkFeed";
-import Methodology from "@/components/Methodology";
-import Footer from "@/components/Footer"; // Import the shared footer
+import Footer from "@/components/Footer"; 
 
 export default function Home() {
   return (
@@ -17,11 +16,6 @@ export default function Home() {
       <TrendChart />
       
       <DebunkFeed />
-      
-      {/* Methodology section is kept here for the home view, 
-          while the footer link directs to the dedicated full page. 
-      */}
-      <Methodology />
       
       <Footer />
     </main>
