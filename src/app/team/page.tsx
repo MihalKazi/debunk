@@ -50,9 +50,23 @@ export default function TeamPage() {
 
   const teamMembers = [
     {
+      name: "Arshi Chakma",
+      role: "Research Intern",
+      organization: "The Dissent",
+      icon: <Database size={24} />,
+      color: "text-emerald-600",
+      bg: "bg-emerald-500",
+      image: "/team/arshi.jpg",
+      desc: "Architecting information pipelines and managing high-volume verification datasets.",
+      socials: {
+        github: "",
+        linkedin: "https://www.linkedin.com/in/arshi-chakma-c00/",
+        portfolio: "" 
+      }
+    },
+    {
       name: "Minhaj Aman",
       role: "Project Coordinator",
-      // 👇 Only Organization Info
       organization: "Activate Rights", 
       icon: <Zap size={24} />,
       color: "text-amber-600",
@@ -60,9 +74,9 @@ export default function TeamPage() {
       image: "/team/minhaj.jpg",
       desc: "Orchestrating workflow and ensuring forensic integrity across all data vectors.",
       socials: {
-        github: "https://github.com/minhaj",
-        linkedin: "https://linkedin.com/in/minhaj",
-        portfolio: "https://minhaj.com" 
+        github: "",
+        linkedin: "https://www.linkedin.com/in/minhajaman/",
+        portfolio: "" 
       }
     },
     {
@@ -76,7 +90,7 @@ export default function TeamPage() {
       desc: "Architecting information pipelines and managing high-volume verification datasets.",
       socials: {
         github: "https://github.com/jobair",
-        linkedin: "https://linkedin.com/in/jobair",
+        linkedin: "https://www.linkedin.com/in/mohammad-jobair-ahmad/",
         portfolio: "https://jobair.dev" 
       }
     },
@@ -90,8 +104,8 @@ export default function TeamPage() {
       image: "/team/Mehal.jpg",
       desc: "Developing the core infrastructure, full-stack logic, and automated archival systems.",
       socials: {
-        github: "https://github.com/mehal",
-        linkedin: "https://linkedin.com/in/mehal",
+        github: "https://github.com/MihalKazi",
+        linkedin: "https://www.linkedin.com/in/kazi-rohanuzzaman-mehal07/",
         portfolio: "https://mehal.tech" 
       }
     },
