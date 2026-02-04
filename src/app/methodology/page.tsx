@@ -21,7 +21,7 @@ export default function MethodologyPage() {
               Our Methodology
             </h1>
             <p className="text-xl text-slate-600 leading-relaxed font-serif italic">
-              "Establishing a forensic standard for the era of synthetic media."
+              &ldquo;Establishing a forensic standard for the era of synthetic media.&rdquo;
             </p>
           </div>
         </section>
@@ -46,7 +46,7 @@ export default function MethodologyPage() {
                 </div>
                 <h3 className="font-serif text-xl font-bold mb-3 text-[#1e3a5f]">1. AI Detection</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  We utilize forensic tools to analyze visual artifacts, metadata anomalies, and diffusion patterns characteristic of generative AI.
+                  We utilize GNG tools to analyze visual artifacts, metadata anomalies, and diffusion patterns characteristic of generative AI.
                 </p>
               </div>
 

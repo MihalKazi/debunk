@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     default: "GNG | Generated, not Genuine | AI Verification Repository",
     template: "%s | GNG Archive"
   },
-  description: "The global forensic archive documenting the boundary between synthetic media and digital truth. Tracking deepfakes, AI misinformation, and synthetic content worldwide.",
+  description: "The global GNG archive documenting the boundary between synthetic media and digital truth. Tracking deepfakes, AI misinformation, and synthetic content worldwide.",
   keywords: ["AI verification", "deepfake archive", "GNG repository", "fact check AI", "synthetic media detection", "digital truth"],
   authors: [{ name: "GNG Repository Team" }],
   creator: "GNG Archive",
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://aigng.activaterights.org",
     siteName: "GNG | Generated, not Genuine",
-    title: "GNG | AI & Synthetic Media Forensic Archive",
-    description: "Documenting the boundary between synthetic media and digital truth through forensic verification.",
+    title: "GNG | AI & Synthetic Media Permanent Archive",
+    description: "Documenting the boundary between synthetic media and digital truth through verification.",
     images: [
       {
         url: "/og-image.jpg", 

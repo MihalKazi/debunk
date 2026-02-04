@@ -497,7 +497,7 @@ export default function AdminPage() {
             <div className="p-8 border-b flex justify-between items-center bg-white text-black">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">{isEditingPublished ? "Update Archive" : "Finalize Evidence"}</h2>
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1">Creating Permanent Forensic Record</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1">Creating Permanent GNG Record</p>
               </div>
               <button onClick={() => setIsReviewOpen(false)} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><X size={20} /></button>
             </div>

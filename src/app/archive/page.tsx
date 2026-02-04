@@ -82,7 +82,7 @@ export default function FullArchive() {
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Extended Archive</h1>
-            <p className="text-slate-500 font-medium">Master registry of {debunks.length} verified digital forensic records.</p>
+            <p className="text-slate-500 font-medium">Master registry of {debunks.length} verified digital GNG records.</p>
           </div>
           
           <div className="flex gap-3">
