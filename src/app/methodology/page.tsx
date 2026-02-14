@@ -3,7 +3,7 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion"; // <-- Added Variants here
 import { 
   Database, 
   Globe, 
@@ -25,13 +25,13 @@ export const metadata = {
 */
 
 export default function MethodologyPage() {
-  // Animation Variants
-  const fadeInUp = {
+  // Animation Variants with explicit Types to satisfy TypeScript build
+  const fadeInUp: Variants = {
     hidden: { opacity: 0, y: 30 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
   };
 
-  const staggerContainer = {
+  const staggerContainer: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
