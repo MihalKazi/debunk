@@ -156,13 +156,13 @@ export default function HeroSection() {
               </h1>
 
               <p className="text-lg md:text-xl text-slate-500 mb-10 max-w-lg font-medium leading-relaxed">
-                The global clearinghouse for synthetic media. We verify, archive, and debunk AI-generated deception using forensic data analysis.
+                We monitor, verify, and visualize AI-generated misinformation in Bangladesh, providing real-time insights to support electoral integrity, research, and public awareness.
               </p>
 
               {/* ACTION BUTTONS */}
               <div className="flex flex-wrap gap-4">
                 <Link 
-                  href="/about" 
+                  href="/methodology" 
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 hover:text-[#1e3a5f] hover:border-[#1e3a5f] transition-all hover:bg-slate-50 hover:shadow-md"
                 >
                   Methodology

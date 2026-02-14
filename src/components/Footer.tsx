@@ -45,7 +45,7 @@ export default function Footer() {
 
             <div className="space-y-6">
                <p className="text-blue-100/80 font-medium text-lg leading-relaxed max-w-xs">
-                 Forensic archive tracking synthetic media and digital integrity.
+                Public archive tracking synthetic media and digital integrity.
                </p>
                
                <div className="pt-6 border-t border-white/10">
