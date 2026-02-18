@@ -52,7 +52,7 @@ export default function TeamPage() {
     {
       name: "Arshi Chakma",
       role: "Research Intern",
-      organization: "The Dissent",
+      organization: "Activate Rights",
       icon: <Database size={24} />,
       color: "text-emerald-600",
       bg: "bg-emerald-500",

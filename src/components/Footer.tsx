@@ -17,7 +17,7 @@ export default function Footer() {
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-16 xl:gap-10">
           
           {/* --- BRAND IDENTITY --- */}
-          <div className="flex flex-col items-start gap-8 max-w-md">
+          <div className="flex flex-col items-start gap-8 max-w-xl">
             <div className="flex items-center gap-6">
               {/* Logo Container */}
               <div className="relative w-16 h-16 bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center shadow-2xl backdrop-blur-md group overflow-hidden">
@@ -44,16 +44,22 @@ export default function Footer() {
             </div>
 
             <div className="space-y-6">
-               <p className="text-blue-100/80 font-medium text-lg leading-relaxed max-w-xs">
-                Public archive tracking synthetic media and digital integrity.
-               </p>
+               {/* --- SPLIT PARAGRAPHS HERE --- */}
+               <div className="space-y-4 max-w-md">
+                 <p className="text-blue-100/80 font-medium text-sm md:text-base leading-relaxed">
+                   Generated Not Genuine is a project of <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-300 transition-colors border-b border-white/30 hover:border-blue-300 pb-0.5">Activate Rights</a>. All rights reserved.
+                 </p>
+                 <p className="text-blue-100/80 font-medium text-sm md:text-base leading-relaxed">
+                   <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-300 transition-colors border-b border-white/30 hover:border-blue-300 pb-0.5">Activate Rights</a> is an organization dedicated to protecting digital rights in Bangladesh. We strive to build a free and democratic digital landscape where everyone can participate securely, fearlessly, and freely.
+                 </p>
+               </div>
                
                <div className="pt-6 border-t border-white/10">
                  <p className="text-[10px] text-blue-200/60 font-black uppercase tracking-[0.2em]">
                    System Version 1.0.4
                  </p>
                  <p className="text-[10px] text-blue-200/40 font-bold tracking-widest uppercase mt-2">
-                   © 2024-2026 <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-blue-200 hover:text-white transition-colors border-b border-transparent hover:border-white pb-0.5">Activate Rights</a>. All rights reserved.
+                   © 2026 <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-blue-200 hover:text-white transition-colors border-b border-transparent hover:border-white pb-0.5">Activate Rights</a>. All rights reserved.
                  </p>
                </div>
             </div>

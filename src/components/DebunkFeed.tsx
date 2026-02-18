@@ -168,22 +168,6 @@ export default function DebunkFeed() {
                   </div>
                 </div>
 
-                {/* Registry Status Card */}
-                <div className="hidden lg:block p-8 rounded-[2.5rem] bg-[#1e3a5f] text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden group">
-                  <div 
-                    className="absolute inset-0 opacity-20"
-                    style={{ backgroundImage: `url("${NOISE_BG}")` }}
-                  ></div>
-                  <Server className="text-white/10 absolute -right-6 -bottom-6 transition-transform group-hover:scale-110 duration-500" size={140} />
-                  <div className="relative z-10">
-                    <div className="inline-block px-3 py-1.5 rounded-lg bg-white/10 text-[9px] font-black uppercase tracking-widest mb-4 border border-white/10">
-                        System Secure
-                    </div>
-                    <p className="text-lg font-bold leading-snug tracking-tight">
-                      Archive synchronized with global forensic registries.
-                    </p>
-                  </div>
-                </div>
               </div>
             </aside>
 
