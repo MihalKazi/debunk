@@ -50,21 +50,6 @@ export default function TeamPage() {
 
   const teamMembers = [
     {
-      name: "Arshi Chakma",
-      role: "Research Intern",
-      organization: "Activate Rights",
-      icon: <Database size={24} />,
-      color: "text-emerald-600",
-      bg: "bg-emerald-500",
-      image: "/team/arshi.jpg",
-      desc: "Architecting information pipelines and managing high-volume verification datasets.",
-      socials: {
-        github: "",
-        linkedin: "https://www.linkedin.com/in/arshi-chakma-c00/",
-        portfolio: "" 
-      }
-    },
-    {
       name: "Minhaj Aman",
       role: "Project Coordinator",
       organization: "Activate Rights", 
