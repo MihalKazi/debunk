@@ -55,10 +55,7 @@ export default function Footer() {
                </div>
                
                <div className="pt-6 border-t border-white/10">
-                 <p className="text-[10px] text-blue-200/60 font-black uppercase tracking-[0.2em]">
-                   System Version 1.0.4
-                 </p>
-                 <p className="text-[10px] text-blue-200/40 font-bold tracking-widest uppercase mt-2">
+                 <p className="text-[10px] text-blue-200/40 font-bold tracking-widest uppercase">
                    © 2026 <a href="https://activaterights.org" target="_blank" rel="noopener noreferrer" className="text-blue-200 hover:text-white transition-colors border-b border-transparent hover:border-white pb-0.5">Activate Rights</a>. All rights reserved.
                  </p>
                </div>

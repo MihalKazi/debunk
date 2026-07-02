@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { Wifi, Terminal } from "lucide-react";
 import Tilt from 'react-parallax-tilt';
 
 // --- 1. DECRYPT TEXT COMPONENT ---
@@ -65,13 +64,11 @@ export default function HeroSection() {
     loading: true
   });
   
-  const [syncTime, setSyncTime] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => {
     setMounted(true);
-    setSyncTime(new Date().toLocaleTimeString());
 
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
@@ -149,9 +146,6 @@ export default function HeroSection() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                  </span>
-                 <span className="flex items-center gap-1">
-                    <Terminal size={10} /> SYSTEM_STATUS: ONLINE
-                 </span>
               </div>
 
               <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
@@ -203,27 +197,6 @@ export default function HeroSection() {
               </Tilt>
             </div>
           </div>
-        </div>
-
-        {/* --- SYSTEM FOOTER --- */}
-        <div className="mt-24 border-t border-slate-200 bg-white/40 backdrop-blur-sm">
-            <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] font-mono font-medium text-slate-400 uppercase tracking-widest">
-                    <div className="flex items-center gap-6">
-                        <span className="flex items-center gap-2">
-                            <Wifi size={12} className="text-emerald-500" /> 
-                            Signal: Stable
-                        </span>
-                        <span className="hidden md:inline">Latency: 24ms</span>
-                        <span className="hidden md:inline">Server: ASIA-SE1</span>
-                    </div>
-                    <div className="flex items-center gap-6">
-                         <span>Last Sync: {syncTime || "Connecting..."}</span>
-                         <span className="text-slate-300">|</span>
-                         <span>Encrypted: TLS 1.3</span>
-                    </div>
-                </div>
-            </div>
         </div>
 
       </section>
