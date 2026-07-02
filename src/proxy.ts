@@ -1,19 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createSupabaseMiddlewareClient } from '@/lib/supabaseServer'
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // Check if the user has the universal "admin_access" cookie
-  const isAuthorized = request.cookies.get('admin_access')?.value === 'true'
+  const response = NextResponse.next()
 
-  // If trying to access admin without the cookie, send to login
-  if (pathname.startsWith('/admin') && !isAuthorized) {
+  if (!pathname.startsWith('/admin')) {
+    return response
+  }
+
+  const supabase = createSupabaseMiddlewareClient(request, response)
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
   matcher: ['/admin/:path*'],
-} 
+}
