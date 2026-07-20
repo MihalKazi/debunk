@@ -10,7 +10,9 @@ export const detectSiteName = (url: string) => {
   if (lowerUrl.includes("facebook.com")) return "Facebook";
   if (lowerUrl.includes("twitter.com") || lowerUrl.includes("x.com")) return "X (Twitter)";
   if (lowerUrl.includes("youtube.com")) return "YouTube";
-  if (lowerUrl.includes("boomlive.in")) return "BOOM Live";
+  if (lowerUrl.includes("boomlive.in") || lowerUrl.includes("boombd.com")) return "BOOM Live";
+  if (lowerUrl.includes("factcrescendo.com")) return "Fact Crescendo";
+  if (lowerUrl.includes("newschecker.co")) return "Newschecker";
   return "";
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
 import {
@@ -40,6 +40,10 @@ export default function AdminPage() {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewData, setReviewData] = useState<any>(null);
   const [isEditingPublished, setIsEditingPublished] = useState(false);
+  const [pendingPageSize, setPendingPageSize] = useState(50);
+  const pendingPageSizeRef = useRef(50);
+  const [pendingHasMore, setPendingHasMore] = useState(false);
+  const [pendingTotalCount, setPendingTotalCount] = useState(0);
 
   const getTodayStr = () => new Date().toLocaleDateString("en-CA");
   const categories = ["Political", "Religious", "Gender", "Scam", "Others"];
@@ -69,7 +73,9 @@ export default function AdminPage() {
     if (lowerUrl.includes("facebook.com")) return "Facebook";
     if (lowerUrl.includes("twitter.com") || lowerUrl.includes("x.com")) return "X (Twitter)";
     if (lowerUrl.includes("youtube.com")) return "YouTube";
-    if (lowerUrl.includes("boomlive.in")) return "BOOM Live";
+    if (lowerUrl.includes("boomlive.in") || lowerUrl.includes("boombd.com")) return "BOOM Live";
+    if (lowerUrl.includes("factcrescendo.com")) return "Fact Crescendo";
+    if (lowerUrl.includes("newschecker.co")) return "Newschecker";
     return "";
   };
 
@@ -132,12 +138,31 @@ export default function AdminPage() {
   // --- 2. DATA FETCHING (WITH DRAFT LOGIC) ---
   useEffect(() => {
     loadData();
+
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    let publishedTimer: ReturnType<typeof setTimeout> | null = null;
+    const DEBOUNCE_MS = 3000;
+
+    const debouncedFetchPending = () => {
+      if (pendingTimer) clearTimeout(pendingTimer);
+      pendingTimer = setTimeout(() => fetchPending(), DEBOUNCE_MS);
+    };
+    const debouncedFetchPublished = () => {
+      if (publishedTimer) clearTimeout(publishedTimer);
+      publishedTimer = setTimeout(() => fetchPublished(), DEBOUNCE_MS);
+    };
+
     const channel = supabase
       .channel("live-updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "pending_scrapes" }, () => fetchPending())
-      .on("postgres_changes", { event: "*", schema: "public", table: "debunks" }, () => fetchPublished())
+      .on("postgres_changes", { event: "*", schema: "public", table: "pending_scrapes" }, debouncedFetchPending)
+      .on("postgres_changes", { event: "*", schema: "public", table: "debunks" }, debouncedFetchPublished)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      if (pendingTimer) clearTimeout(pendingTimer);
+      if (publishedTimer) clearTimeout(publishedTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function loadData() {
@@ -146,15 +171,29 @@ export default function AdminPage() {
   }
 
   async function fetchPending(existingPublished?: any[]) {
-    const { data: inbox } = await supabase.from("pending_scrapes").select("*").order("created_at", { ascending: false });
-    
+    const limit = pendingPageSizeRef.current;
+    const { data: inbox, count } = await supabase
+      .from("pending_scrapes")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(0, limit - 1);
+
+    setPendingTotalCount(count || 0);
+
     // FILTER LOGIC: Remove items from Inbox if they already exist in Published
     const archivedList = existingPublished || publishedDebunks;
     const archivedTitles = new Set(archivedList.map(item => item.title.toLowerCase().trim()));
     const filteredInbox = (inbox || []).filter(item => !archivedTitles.has(item.title.toLowerCase().trim()));
-    
+
+    setPendingHasMore((inbox || []).length >= limit);
     setPendingScrapes(filteredInbox);
     return filteredInbox;
+  }
+
+  function loadMorePending() {
+    pendingPageSizeRef.current += 50;
+    setPendingPageSize(pendingPageSizeRef.current);
+    fetchPending();
   }
 
   async function fetchPublished() {
@@ -346,6 +385,17 @@ export default function AdminPage() {
     <div className="min-h-screen bg-slate-100">
       <Navbar />
       <div className="max-w-[1400px] mx-auto px-6 py-12">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/login");
+            }}
+            className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors"
+          >
+            Logout
+          </button>
+        </div>
         {message && (
           <div className="fixed top-24 right-6 z-[400] bg-white border-l-4 border-emerald-500 shadow-2xl p-4 rounded-xl text-black font-bold animate-in slide-in-from-right flex items-center gap-3">
             <Archive size={20} className="text-emerald-500"/> {message}
@@ -421,7 +471,7 @@ export default function AdminPage() {
             <div className="bg-white shadow-sm rounded-3xl border border-slate-200 overflow-hidden flex flex-col min-h-[700px]">
               <div className="flex border-b bg-slate-50">
                 <button onClick={() => setActiveTab("pending")} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === "pending" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-slate-400"}`}>
-                  Inbox ({pendingScrapes.length})
+                  Inbox ({pendingTotalCount})
                 </button>
                 <button onClick={() => setActiveTab("published")} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === "published" ? "bg-white text-emerald-600 border-b-2 border-emerald-600" : "text-slate-400"}`}>
                   Archive ({publishedDebunks.length})
@@ -437,14 +487,20 @@ export default function AdminPage() {
                 {(activeTab === "pending" ? filteredScrapes : filteredPublished).map((item) => (
                   <div key={item.id} className="p-4 bg-slate-50 rounded-2xl flex gap-4 items-center group mb-4 border border-transparent hover:border-slate-200 transition-all">
                     <div className="w-12 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 border border-slate-300">
-                      {item.media_url && <img src={item.media_url} className="w-full h-full object-cover" alt="" />}
+                      {item.media_url && <img src={item.media_url} loading="lazy" className="w-full h-full object-cover" alt="" />}
                     </div>
                     <div className="flex-1 truncate">
-                      <div className="text-black font-bold text-sm truncate">{item.title}</div>
+                      <div
+                        className="text-black font-bold text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={() => (activeTab === "pending" ? openReview(item) : openEditPublished(item))}
+                      >
+                        {item.title}
+                      </div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
                         <Globe size={10} /> {item.platform || "Web"} • <span className="text-blue-600 font-black">{item.source || detectSiteName(item.source_link) || "UNVERIFIED"}</span>
                         {item.category && <span className="ml-2 px-2 py-0.5 bg-slate-200 rounded text-slate-600">{item.category}</span>}
                         {item.wayback_url && <span className="ml-2 text-emerald-500 flex items-center gap-1 font-black"><History size={10}/> Mirrored</span>}
+                        {item.occurrence_date && <span className="ml-2 text-slate-400">{new Date(item.occurrence_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -483,6 +539,14 @@ export default function AdminPage() {
                 ))}
                 {(activeTab === "pending" ? filteredScrapes : filteredPublished).length === 0 && (
                   <div className="text-center py-20 text-slate-400 font-bold text-sm">No records found matching your search.</div>
+                )}
+                {activeTab === "pending" && pendingHasMore && !searchQuery.trim() && (
+                  <button
+                    onClick={loadMorePending}
+                    className="w-full py-3 text-xs font-black uppercase tracking-widest text-blue-600 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-all"
+                  >
+                    Load More
+                  </button>
                 )}
               </div>
             </div>
