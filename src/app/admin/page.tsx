@@ -119,22 +119,6 @@ export default function AdminPage() {
     }
   }
 
-  // --- HELPER: TRANSLATION ---
-  async function translateToEnglish(text: string) {
-    if (!text) return "";
-    const isBengali = /[\u0980-\u09FF]/.test(text);
-    if (!isBengali) return text;
-    try {
-      const res = await fetch(
-        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=bn&tl=en&dt=t&q=${encodeURIComponent(text)}`
-      );
-      const data = await res.json();
-      return data[0].map((s: any) => s[0]).join("");
-    } catch (e) {
-      return text;
-    }
-  }
-
   // --- 2. DATA FETCHING (WITH DRAFT LOGIC) ---
   useEffect(() => {
     loadData();
@@ -217,19 +201,13 @@ export default function AdminPage() {
 
   // --- 4. MODAL HANDLERS ---
   const openReview = async (item: any) => {
-    setMessage("Translating...");
-    const [tTitle, tSummary] = await Promise.all([
-        translateToEnglish(item.title),
-        translateToEnglish(item.summary)
-    ]);
-    
     // Ensure date is formatted for input type="date"
     const dateObj = item.occurrence_date ? new Date(item.occurrence_date) : new Date();
-    
+
     setReviewData({
       ...item,
-      title: tTitle,
-      summary: tSummary,
+      title: item.title,
+      summary: item.summary,
       verdict: item.verdict || "Fake",
       severity: item.severity || "medium",
       category: item.category || "Others",
