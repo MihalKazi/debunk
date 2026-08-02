@@ -110,9 +110,24 @@ export default function AdminPage() {
   async function archiveToWayback(url: string) {
     if (!url || url.includes("localhost") || url.includes("127.0.0.1")) return null;
     try {
-      const waybackUrl = `https://web.archive.org/save/${url}`;
-      fetch(waybackUrl, { mode: 'no-cors' }); 
-      return `https://web.archive.org/web/${url}`;
+      // Trigger save job. no-cors hides response so it can't confirm success here.
+      await fetch(`https://web.archive.org/save/${url}`, { mode: 'no-cors' });
+
+      // Poll availability API (CORS-enabled, readable) until snapshot actually exists.
+      const maxAttempts = 10;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 4000));
+        try {
+          const res = await fetch(`https://archive.org/wayback/available?url=${encodeURIComponent(url)}`);
+          const data = await res.json();
+          const snapshotUrl = data?.archived_snapshots?.closest?.url;
+          if (snapshotUrl) return snapshotUrl as string;
+        } catch {
+          // availability check failed this round, retry
+        }
+      }
+      console.error("Wayback: snapshot not confirmed after polling", url);
+      return null;
     } catch (e) {
       console.error("Wayback error:", e);
       return null;
