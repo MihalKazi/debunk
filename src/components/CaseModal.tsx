@@ -46,7 +46,7 @@ export default function CaseModal({ isOpen, onClose, data }: CaseModalProps) {
         
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 z-[110] w-14 h-14 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full flex items-center justify-center transition-all hover:rotate-90 active:scale-90 border border-white/20 shadow-lg"
+          className="absolute top-6 right-6 z-[110] w-14 h-14 bg-slate-900/70 hover:bg-slate-900/90 backdrop-blur-xl text-white rounded-full flex items-center justify-center transition-all hover:rotate-90 active:scale-90 border border-white/20 shadow-lg"
         >
           <X size={28} strokeWidth={2.5} />
         </button>
