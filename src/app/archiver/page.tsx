@@ -3,7 +3,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { ArrowLeft, Archive, Link as LinkIcon, ExternalLink, Copy, CheckCheck, Loader2, AlertTriangle, History, ImageUp, Camera } from "lucide-react";
+import {
+  ArrowLeft,
+  Archive,
+  Link as LinkIcon,
+  ExternalLink,
+  Loader2,
+  AlertTriangle,
+  History,
+  ImageUp,
+  Camera,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 type ArchivedLink = {
   id: string;
@@ -76,25 +88,41 @@ async function verifySnapshotLive(
   return false;
 }
 
+type EntryStatus = "idle" | "uploading" | "loading" | "verifying" | "done" | "error";
+
+type Entry = {
+  clientId: string;
+  url: string;
+  file: File | null;
+  status: EntryStatus;
+  progress: { attempt: number; max: number };
+  verifyProgress: { attempt: number; max: number };
+  result: string | null;
+  fallbackUrl: string | null;
+  error: string;
+};
+
+function newEntry(): Entry {
+  return {
+    clientId: Math.random().toString(36).slice(2),
+    url: "",
+    file: null,
+    status: "idle",
+    progress: { attempt: 0, max: MAX_ATTEMPTS },
+    verifyProgress: { attempt: 0, max: 12 },
+    result: null,
+    fallbackUrl: null,
+    error: "",
+  };
+}
+
 export default function ArchiverPage() {
   const router = useRouter();
-  const [inputUrl, setInputUrl] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "verifying" | "done" | "error">("idle");
-  const [archiveUrl, setArchiveUrl] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [progress, setProgress] = useState({ attempt: 0, max: MAX_ATTEMPTS });
-  const [urlVerifyProgress, setUrlVerifyProgress] = useState({ attempt: 0, max: 12 });
+  const [entries, setEntries] = useState<Entry[]>([newEntry()]);
+  const [batchRunning, setBatchRunning] = useState(false);
   const [history, setHistory] = useState<ArchivedLink[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotStatus, setScreenshotStatus] = useState<"idle" | "uploading" | "loading" | "verifying" | "done" | "error">("idle");
-  const [screenshotProgress, setScreenshotProgress] = useState({ attempt: 0, max: MAX_ATTEMPTS });
-  const [verifyProgress, setVerifyProgress] = useState({ attempt: 0, max: 12 });
-  const [screenshotResult, setScreenshotResult] = useState<string | null>(null);
-  const [screenshotError, setScreenshotError] = useState("");
-  const [screenshotFallbackUrl, setScreenshotFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -141,60 +169,17 @@ export default function ArchiverPage() {
     return data as ArchivedLink | null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const url = normalizeUrl(inputUrl);
-    if (!url) return;
-
-    if (url.includes("localhost") || url.includes("127.0.0.1")) {
-      setStatus("error");
-      setErrorMsg("Local URLs can't be archived.");
-      return;
-    }
-
-    setStatus("loading");
-    setArchiveUrl(null);
-    setErrorMsg("");
-    setProgress({ attempt: 0, max: MAX_ATTEMPTS });
-
-    const row = await logSubmission(url);
-
-    try {
-      const snapshot = await archiveToWayback(url, (attempt, max) => setProgress({ attempt, max }));
-      if (snapshot) {
-        setArchiveUrl(snapshot);
-        if (row) {
-          await supabase.from("archived_links").update({ wayback_url: snapshot, status: "done" }).eq("id", row.id);
-          fetchHistory();
-        }
-
-        setStatus("verifying");
-        setUrlVerifyProgress({ attempt: 0, max: 12 });
-        await verifySnapshotLive(snapshot, (attempt, max) => setUrlVerifyProgress({ attempt, max }));
-        setStatus("done");
-      } else {
-        setStatus("error");
-        setErrorMsg("Snapshot not confirmed after polling. Wayback may still be processing — try again shortly.");
-        if (row) await supabase.from("archived_links").update({ status: "failed" }).eq("id", row.id);
-      }
-    } catch (err) {
-      setStatus("error");
-      setErrorMsg(err instanceof Error ? err.message : "Archive request failed. Check the URL and try again.");
-      if (row) await supabase.from("archived_links").update({ status: "failed" }).eq("id", row.id);
-    } finally {
-      fetchHistory();
-    }
+  const updateEntry = (clientId: string, patch: Partial<Entry>) => {
+    setEntries((prev) => prev.map((e) => (e.clientId === clientId ? { ...e, ...patch } : e)));
   };
 
-  const handleCopy = () => {
-    if (!archiveUrl) return;
-    navigator.clipboard.writeText(archiveUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const addEntry = () => setEntries((prev) => [...prev, newEntry()]);
 
-  const handleCaptureTab = async () => {
-    setScreenshotError("");
+  const removeEntry = (clientId: string) =>
+    setEntries((prev) => (prev.length > 1 ? prev.filter((e) => e.clientId !== clientId) : prev));
+
+  const handleCaptureTab = async (clientId: string) => {
+    updateEntry(clientId, { error: "" });
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: "browser" } as MediaTrackConstraints });
       const track = stream.getVideoTracks()[0];
@@ -212,81 +197,140 @@ export default function ArchiverPage() {
 
       const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) {
-        setScreenshotError("Capture failed — couldn't read the shared tab.");
+        updateEntry(clientId, { error: "Capture failed — couldn't read the shared tab." });
         return;
       }
-      setScreenshotFile(new File([blob], `capture-${Date.now()}.png`, { type: "image/png" }));
+      updateEntry(clientId, { file: new File([blob], `capture-${Date.now()}.png`, { type: "image/png" }) });
     } catch (err: any) {
       if (err?.name !== "NotAllowedError") {
-        setScreenshotError("Capture failed or was cancelled. Try again, or upload a screenshot file instead.");
+        updateEntry(clientId, { error: "Capture failed or was cancelled. Try again, or upload a screenshot file instead." });
       }
     }
   };
 
-  const handleScreenshotArchive = async () => {
-    if (!screenshotFile) return;
-    const sourceUrl = normalizeUrl(inputUrl);
-    if (!sourceUrl) {
-      setScreenshotStatus("error");
-      setScreenshotError("Paste the page's URL in the box above first — the browser can't read it from the screenshot.");
+  const archiveEntry = async (entry: Entry) => {
+    const url = normalizeUrl(entry.url);
+    if (!url) {
+      updateEntry(entry.clientId, { status: "error", error: "Paste a URL for this entry first." });
+      return;
+    }
+    if (url.includes("localhost") || url.includes("127.0.0.1")) {
+      updateEntry(entry.clientId, { status: "error", error: "Local URLs can't be archived." });
       return;
     }
 
-    setScreenshotStatus("uploading");
-    setScreenshotResult(null);
-    setScreenshotError("");
-    setScreenshotFallbackUrl(null);
-    setScreenshotProgress({ attempt: 0, max: MAX_ATTEMPTS });
+    // --- Screenshot path ---
+    if (entry.file) {
+      const file = entry.file;
+      updateEntry(entry.clientId, {
+        status: "uploading",
+        error: "",
+        result: null,
+        fallbackUrl: null,
+        progress: { attempt: 0, max: MAX_ATTEMPTS },
+      });
 
-    const fileExt = screenshotFile.name.split(".").pop() || "png";
-    const fileName = `archiver-temp/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const fileExt = file.name.split(".").pop() || "png";
+      const fileName = `archiver-temp/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage.from("evidence").upload(fileName, screenshotFile);
-    if (uploadError) {
-      setScreenshotStatus("error");
-      setScreenshotError("Upload failed: " + uploadError.message);
+      const { error: uploadError } = await supabase.storage.from("evidence").upload(fileName, file);
+      if (uploadError) {
+        updateEntry(entry.clientId, { status: "error", error: "Upload failed: " + uploadError.message });
+        return;
+      }
+      const publicUrl = supabase.storage.from("evidence").getPublicUrl(fileName).data.publicUrl;
+      const proxyUrl = `${window.location.origin}/api/evidence/${fileName}`;
+
+      const row = await logSubmission(url, { is_screenshot: true });
+
+      updateEntry(entry.clientId, { status: "loading" });
+      try {
+        const snapshot = await archiveToWayback(proxyUrl, (attempt, max) =>
+          updateEntry(entry.clientId, { progress: { attempt, max } })
+        );
+        if (snapshot) {
+          updateEntry(entry.clientId, { result: snapshot });
+          if (row) {
+            await supabase.from("archived_links").update({ wayback_url: snapshot, status: "done" }).eq("id", row.id);
+            fetchHistory();
+          }
+
+          updateEntry(entry.clientId, { status: "verifying", verifyProgress: { attempt: 0, max: 12 } });
+          const live = await verifySnapshotLive(snapshot, (attempt, max) =>
+            updateEntry(entry.clientId, { verifyProgress: { attempt, max } })
+          );
+          if (live) {
+            await supabase.storage.from("evidence").remove([fileName]);
+          } else {
+            updateEntry(entry.clientId, { fallbackUrl: publicUrl });
+          }
+          updateEntry(entry.clientId, { status: "done" });
+        } else {
+          updateEntry(entry.clientId, {
+            status: "error",
+            error: "Snapshot not confirmed. Screenshot stays in storage — link below still works as a fallback.",
+            fallbackUrl: publicUrl,
+          });
+          if (row) await supabase.from("archived_links").update({ status: "failed", wayback_url: publicUrl }).eq("id", row.id);
+        }
+      } catch (err) {
+        updateEntry(entry.clientId, {
+          status: "error",
+          error: err instanceof Error ? err.message : "Archive request failed. Screenshot stays in storage as a fallback.",
+          fallbackUrl: publicUrl,
+        });
+        if (row) await supabase.from("archived_links").update({ status: "failed", wayback_url: publicUrl }).eq("id", row.id);
+      } finally {
+        fetchHistory();
+      }
       return;
     }
-    const publicUrl = supabase.storage.from("evidence").getPublicUrl(fileName).data.publicUrl;
-    const proxyUrl = `${window.location.origin}/api/evidence/${fileName}`;
 
-    const row = await logSubmission(sourceUrl, { is_screenshot: true });
+    // --- Direct URL path ---
+    updateEntry(entry.clientId, { status: "loading", error: "", result: null, progress: { attempt: 0, max: MAX_ATTEMPTS } });
+    const row = await logSubmission(url);
 
-    setScreenshotStatus("loading");
     try {
-      const snapshot = await archiveToWayback(proxyUrl, (attempt, max) => setScreenshotProgress({ attempt, max }));
+      const snapshot = await archiveToWayback(url, (attempt, max) => updateEntry(entry.clientId, { progress: { attempt, max } }));
       if (snapshot) {
-        setScreenshotResult(snapshot);
+        updateEntry(entry.clientId, { result: snapshot });
         if (row) {
           await supabase.from("archived_links").update({ wayback_url: snapshot, status: "done" }).eq("id", row.id);
           fetchHistory();
         }
 
-        setScreenshotStatus("verifying");
-        setVerifyProgress({ attempt: 0, max: 12 });
-        const live = await verifySnapshotLive(snapshot, (attempt, max) => setVerifyProgress({ attempt, max }));
-        if (live) {
-          await supabase.storage.from("evidence").remove([fileName]);
-        } else {
-          // Wayback said success but hasn't indexed it yet — keep our copy so nothing is lost.
-          setScreenshotFallbackUrl(publicUrl);
-        }
-        setScreenshotStatus("done");
+        updateEntry(entry.clientId, { status: "verifying", verifyProgress: { attempt: 0, max: 12 } });
+        await verifySnapshotLive(snapshot, (attempt, max) => updateEntry(entry.clientId, { verifyProgress: { attempt, max } }));
+        updateEntry(entry.clientId, { status: "done" });
       } else {
-        setScreenshotStatus("error");
-        setScreenshotError("Snapshot not confirmed. Screenshot stays in storage — link below still works as a fallback.");
-        setScreenshotFallbackUrl(publicUrl);
-        if (row) await supabase.from("archived_links").update({ status: "failed", wayback_url: publicUrl }).eq("id", row.id);
+        updateEntry(entry.clientId, {
+          status: "error",
+          error: "Snapshot not confirmed after polling. Wayback may still be processing — try again shortly.",
+        });
+        if (row) await supabase.from("archived_links").update({ status: "failed" }).eq("id", row.id);
       }
     } catch (err) {
-      setScreenshotStatus("error");
-      setScreenshotError(err instanceof Error ? err.message : "Archive request failed. Screenshot stays in storage as a fallback.");
-      setScreenshotFallbackUrl(publicUrl);
-      if (row) await supabase.from("archived_links").update({ status: "failed", wayback_url: publicUrl }).eq("id", row.id);
+      updateEntry(entry.clientId, {
+        status: "error",
+        error: err instanceof Error ? err.message : "Archive request failed. Check the URL and try again.",
+      });
+      if (row) await supabase.from("archived_links").update({ status: "failed" }).eq("id", row.id);
     } finally {
       fetchHistory();
     }
   };
+
+  const handleArchiveAll = async () => {
+    setBatchRunning(true);
+    const pending = entries.filter((e) => normalizeUrl(e.url) && e.status !== "loading" && e.status !== "verifying" && e.status !== "uploading");
+    for (const entry of pending) {
+      await archiveEntry(entry);
+    }
+    setBatchRunning(false);
+  };
+
+  const anyBusy = entries.some((e) => e.status === "uploading" || e.status === "loading" || e.status === "verifying");
+  const anyArchivable = entries.some((e) => normalizeUrl(e.url));
 
   if (!authChecked) {
     return (
@@ -321,235 +365,178 @@ export default function ArchiverPage() {
             <Archive className="text-blue-600" size={28} />
           </div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Wayback Archiver</h1>
-          <p className="text-slate-500 font-medium">Paste a link, get a permanent Wayback Machine snapshot.</p>
+          <p className="text-slate-500 font-medium">
+            Add a link, optionally attach a screenshot for gated pages, then archive one or many at once.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50 p-6 md:p-8">
-          <div className="relative">
-            <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              placeholder="https://example.com/article"
-              className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 focus:ring-4 focus:ring-blue-500/5 outline-none font-medium text-sm transition-all"
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-              disabled={status === "loading"}
-            />
-          </div>
+        <div className="space-y-4">
+          {entries.map((entry, idx) => (
+            <div key={entry.clientId} className="bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50 p-6 md:p-8">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Link #{idx + 1}</span>
+                {entries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(entry.clientId)}
+                    disabled={entry.status === "loading" || entry.status === "verifying" || entry.status === "uploading"}
+                    className="p-1.5 text-slate-300 hover:text-red-500 transition-colors disabled:opacity-30"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
 
-          <button
-            type="submit"
-            disabled={status === "loading" || status === "verifying" || !inputUrl.trim()}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {status === "loading" ? (
-              <>
-                <Loader2 size={18} className="animate-spin" /> Archiving…
-              </>
-            ) : status === "verifying" ? (
-              <>
-                <Loader2 size={18} className="animate-spin" /> Verifying snapshot…
-              </>
-            ) : (
-              <>
-                <Archive size={18} /> Archive URL
-              </>
-            )}
-          </button>
-
-          {status === "loading" && (
-            <div className="mt-4">
-              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 transition-all duration-500"
-                  style={{ width: `${Math.min(100, (progress.attempt / progress.max) * 100)}%` }}
+              <div className="relative">
+                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="https://example.com/article"
+                  className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 focus:ring-4 focus:ring-blue-500/5 outline-none font-medium text-sm transition-all"
+                  value={entry.url}
+                  onChange={(e) => updateEntry(entry.clientId, { url: e.target.value })}
+                  disabled={entry.status === "loading" || entry.status === "verifying" || entry.status === "uploading"}
                 />
               </div>
-              <p className="mt-2 text-xs font-bold text-slate-400 text-center">
-                Checking snapshot {progress.attempt}/{progress.max} · ~{Math.max(0, progress.max - progress.attempt) * (POLL_INTERVAL_MS / 1000)}s left
-              </p>
-            </div>
-          )}
 
-          {status === "verifying" && (
-            <div className="mt-4">
-              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${Math.min(100, (urlVerifyProgress.attempt / urlVerifyProgress.max) * 100)}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs font-bold text-slate-400 text-center">
-                Confirming Wayback has indexed it — {urlVerifyProgress.attempt}/{urlVerifyProgress.max}
-              </p>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="mt-5 flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium">
-              <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-              {errorMsg}
-            </div>
-          )}
-
-          {status === "done" && archiveUrl && (
-            <div className="mt-5 p-5 rounded-xl bg-emerald-50 border border-emerald-100">
-              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2">Archived Snapshot</p>
-              <div className="flex items-center gap-2">
-                <a
-                  href={archiveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-blue-600 truncate"
-                >
-                  <ExternalLink size={16} className="shrink-0" />
-                  <span className="truncate">{archiveUrl}</span>
-                </a>
+              <div className="mt-3 flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
-                  onClick={handleCopy}
-                  className="shrink-0 p-2 rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 transition-all"
+                  onClick={() => handleCaptureTab(entry.clientId)}
+                  disabled={anyBusy}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {copied ? <CheckCheck size={16} className="text-emerald-600" /> : <Copy size={16} className="text-slate-500" />}
+                  <Camera size={16} className="text-slate-400" />
+                  <span className="text-xs font-bold text-slate-500">Capture Open Tab</span>
                 </button>
+
+                <label className="flex-1 flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => updateEntry(entry.clientId, { file: e.target.files?.[0] || null })}
+                    disabled={anyBusy}
+                  />
+                  <ImageUp size={16} className="text-slate-400" />
+                  <span className="text-xs font-bold text-slate-500">Upload File</span>
+                </label>
               </div>
-            </div>
-          )}
-        </form>
 
-        <div className="mt-6 bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50 p-6 md:p-8">
-          <div className="flex items-center gap-2 mb-1">
-            <Camera size={18} className="text-slate-400" />
-            <h3 className="font-black text-slate-900">Archive a Screenshot</h3>
-          </div>
-          <p className="text-sm text-slate-500 font-medium mb-5">
-            For gated pages Wayback can&apos;t reach (e.g. Facebook posts needing login). Paste the page&apos;s URL in the box above (required — the browser can&apos;t read it from a screenshot), then capture the tab or upload a screenshot. It archives to Wayback as an image, then gets removed from our storage.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={handleCaptureTab}
-              disabled={screenshotStatus === "uploading" || screenshotStatus === "loading"}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Camera size={20} className="text-slate-400" />
-              <span className="text-sm font-bold text-slate-500">Capture Open Tab</span>
-            </button>
-
-            <label className="flex-1 flex items-center justify-center gap-2 px-6 py-8 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
-                disabled={screenshotStatus === "uploading" || screenshotStatus === "loading" || screenshotStatus === "verifying"}
-              />
-              <ImageUp size={20} className="text-slate-400" />
-              <span className="text-sm font-bold text-slate-500">Upload File</span>
-            </label>
-          </div>
-
-          {screenshotFile && (
-            <p className="mt-3 text-xs font-bold text-emerald-600 text-center">✓ {screenshotFile.name} ready to archive</p>
-          )}
-
-          <button
-            type="button"
-            onClick={handleScreenshotArchive}
-            disabled={!screenshotFile || !inputUrl.trim() || screenshotStatus === "uploading" || screenshotStatus === "loading" || screenshotStatus === "verifying"}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {screenshotStatus === "uploading" ? (
-              <>
-                <Loader2 size={18} className="animate-spin" /> Uploading…
-              </>
-            ) : screenshotStatus === "loading" ? (
-              <>
-                <Loader2 size={18} className="animate-spin" /> Archiving…
-              </>
-            ) : screenshotStatus === "verifying" ? (
-              <>
-                <Loader2 size={18} className="animate-spin" /> Verifying snapshot…
-              </>
-            ) : (
-              <>
-                <Camera size={18} /> Archive Screenshot
-              </>
-            )}
-          </button>
-
-          {screenshotStatus === "loading" && (
-            <div className="mt-4">
-              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-slate-900 transition-all duration-500"
-                  style={{ width: `${Math.min(100, (screenshotProgress.attempt / screenshotProgress.max) * 100)}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs font-bold text-slate-400 text-center">
-                Checking snapshot {screenshotProgress.attempt}/{screenshotProgress.max}
-              </p>
-            </div>
-          )}
-
-          {screenshotStatus === "verifying" && (
-            <div className="mt-4">
-              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${Math.min(100, (verifyProgress.attempt / verifyProgress.max) * 100)}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs font-bold text-slate-400 text-center">
-                Confirming Wayback has indexed it — {verifyProgress.attempt}/{verifyProgress.max} (this can take a couple of minutes)
-              </p>
-            </div>
-          )}
-
-          {screenshotStatus === "error" && (
-            <div className="mt-5 p-4 rounded-xl bg-red-50 border border-red-100">
-              <div className="flex items-start gap-3 text-red-700 text-sm font-medium">
-                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                {screenshotError}
-              </div>
-              {screenshotFallbackUrl && (
-                <a
-                  href={screenshotFallbackUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-blue-600 truncate"
-                >
-                  <ExternalLink size={16} className="shrink-0" />
-                  <span className="truncate">{screenshotFallbackUrl}</span>
-                </a>
-              )}
-            </div>
-          )}
-
-          {screenshotStatus === "done" && screenshotResult && (
-            <div className="mt-5 p-5 rounded-xl bg-emerald-50 border border-emerald-100">
-              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2">Archived Screenshot</p>
-              <a
-                href={screenshotResult}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-blue-600 truncate"
-              >
-                <ExternalLink size={16} className="shrink-0" />
-                <span className="truncate">{screenshotResult}</span>
-              </a>
-              {screenshotFallbackUrl && (
-                <p className="mt-3 text-xs text-slate-500 font-medium">
-                  Wayback hasn&apos;t finished indexing this yet, so we kept a backup copy:{" "}
-                  <a href={screenshotFallbackUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">
-                    view backup
-                  </a>
+              {entry.file && (
+                <p className="mt-2 text-xs font-bold text-emerald-600 text-center">
+                  ✓ Screenshot attached: {entry.file.name}{" "}
+                  <button type="button" onClick={() => updateEntry(entry.clientId, { file: null })} className="underline font-medium">
+                    remove
+                  </button>
                 </p>
               )}
+
+              {entry.status === "loading" && (
+                <div className="mt-4">
+                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 transition-all duration-500"
+                      style={{ width: `${Math.min(100, (entry.progress.attempt / entry.progress.max) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-bold text-slate-400 text-center">
+                    {entry.file ? "Uploading & archiving…" : "Archiving…"} {entry.progress.attempt}/{entry.progress.max}
+                  </p>
+                </div>
+              )}
+
+              {entry.status === "uploading" && (
+                <p className="mt-3 text-xs font-bold text-slate-400 text-center flex items-center justify-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Uploading screenshot…
+                </p>
+              )}
+
+              {entry.status === "verifying" && (
+                <div className="mt-4">
+                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${Math.min(100, (entry.verifyProgress.attempt / entry.verifyProgress.max) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-bold text-slate-400 text-center">
+                    Confirming Wayback has indexed it — {entry.verifyProgress.attempt}/{entry.verifyProgress.max}
+                  </p>
+                </div>
+              )}
+
+              {entry.status === "error" && (
+                <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-100">
+                  <div className="flex items-start gap-3 text-red-700 text-sm font-medium">
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                    {entry.error}
+                  </div>
+                  {entry.fallbackUrl && (
+                    <a
+                      href={entry.fallbackUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-blue-600 truncate"
+                    >
+                      <ExternalLink size={14} className="shrink-0" />
+                      <span className="truncate">{entry.fallbackUrl}</span>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {entry.status === "done" && entry.result && (
+                <div className="mt-4 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Archived</p>
+                  <a
+                    href={entry.result}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-blue-600 truncate"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    <span className="truncate">{entry.result}</span>
+                  </a>
+                  {entry.fallbackUrl && (
+                    <p className="mt-2 text-xs text-slate-500 font-medium">
+                      Not indexed yet, kept a backup:{" "}
+                      <a href={entry.fallbackUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">
+                        view backup
+                      </a>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
+
+        <button
+          type="button"
+          onClick={addEntry}
+          disabled={anyBusy}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-4 border-2 border-dashed border-slate-300 rounded-2xl font-bold text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Plus size={18} /> Add Another Link
+        </button>
+
+        <button
+          type="button"
+          onClick={handleArchiveAll}
+          disabled={anyBusy || batchRunning || !anyArchivable}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {batchRunning ? (
+            <>
+              <Loader2 size={18} className="animate-spin" /> Archiving all…
+            </>
+          ) : (
+            <>
+              <Archive size={18} /> Archive {entries.length > 1 ? "All" : ""}
+            </>
+          )}
+        </button>
 
         {history.some((h) => h.wayback_url) && (
           <div className="mt-10">
